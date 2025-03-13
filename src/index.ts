@@ -27,7 +27,7 @@ export type TwitterConfig = LocalTwitterConfig;
  * - interaction: handling mentions, replies
  * - space: launching and managing Twitter Spaces (optional)
  */
-class TwitterManager {
+export class TwitterManager {
   client: ClientBase;
   post: TwitterPostClient;
   search: TwitterSearchClient;
@@ -65,13 +65,13 @@ class TwitterManager {
     // console.log('TwitterManager constructor end');
   }
 
-  // TODO get current state of the manager
-  // TODO get the queue length
-  // TODO get the manager's health
-  // TODO count the errors
+  async stop(runtime?: IAgentRuntime) {
+    return await stop(runtime || this.runtime);
+  }
 
-  async stop() {
-    return stop(this.runtime);
+  async start(runtime: IAgentRuntime) {
+    this.client.logger.warn('Twitter client start again by TwitterManager');
+    return await TwitterClientInterface.start(runtime);
   }
 }
 
@@ -89,7 +89,7 @@ function hidePassword(url: string) {
 
 export const TwitterClientInterface: Client = {
   // one loop to start all actions, so that can easy stop the client
-  async start(runtime: IAgentRuntime) {
+  async start(runtime: IAgentRuntime): Promise<TwitterManager> {
     const twitterConfig: TwitterConfig = await validateTwitterConfig(runtime);
 
     // get proxy from config
