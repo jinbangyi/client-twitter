@@ -60,8 +60,7 @@
         "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
         "build:debug": "tsup debug/*.ts",
         "debug": "tsup debug/debug.ts && node dist/debug.js",
-        "debug1": "tsup debug/test-logger.ts && node dist/test-logger.js",
-        "postinstall": "pnpm run build"
+        "debug1": "tsup debug/test-logger.ts && node dist/test-logger.js"
     },
     "peerDependencies": {
         "whatwg-url": "7.1.0"
