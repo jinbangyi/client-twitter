@@ -1,4 +1,4 @@
-// src/plugins/SttTtsPlugin.ts
+// src/plugins/SttTtsPlugin.js
 
 import { spawn } from 'child_process';
 import {
@@ -198,7 +198,7 @@ export class SttTtsPlugin implements Plugin {
     }
   }
 
-  // /src/sttTtsPlugin.ts
+  // /src/sttTtsPlugin.js
   private async convertPcmToWavInMemory(
     pcmData: Int16Array,
     sampleRate: number,

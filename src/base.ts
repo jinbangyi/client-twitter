@@ -15,10 +15,10 @@ import {
   type Tweet,
 } from 'agent-twitter-client';
 import { EventEmitter } from 'events';
-import type { TwitterConfig } from './environment.ts';
-import { CustomScraper } from './scraper.ts';
-import { Logger, SETTINGS } from './settings/index.ts';
-import { TwitterClientState } from './monitor/state.ts';
+import type { TwitterConfig } from './environment.js';
+import { CustomScraper } from './scraper.js';
+import { Logger, SETTINGS } from './settings/index.js';
+import { TwitterClientState } from './monitor/state.js';
 import pino from 'pino';
 
 export function extractAnswer(text: string): string {

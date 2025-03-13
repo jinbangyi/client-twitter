@@ -1,21 +1,23 @@
 import { type Client, type IAgentRuntime } from '@elizaos/core';
-import { ClientBase } from './base.ts';
-import { validateTwitterConfig, type TwitterConfig } from './environment.ts';
-import { TwitterInteractionClient } from './interactions.ts';
-import { TwitterPostClient } from './post.ts';
-import { TwitterSearchClient } from './search.ts';
-import { TwitterSpaceClient } from './spaces.ts';
+import { ClientBase } from './base.js';
+import { validateTwitterConfig, type TwitterConfig as LocalTwitterConfig } from './environment.js';
+import { TwitterInteractionClient } from './interactions.js';
+import { TwitterPostClient } from './post.js';
+import { TwitterSearchClient } from './search.js';
+import { TwitterSpaceClient } from './spaces.js';
 import {
   getCurrentAgentTwitterAccountStatus,
   Logger,
   SETTINGS,
-} from './settings/index.ts';
-import { TwitterClientStatus } from './monitor/state.ts';
+} from './settings/index.js';
+import { TwitterClientStatus } from './monitor/state.js';
 import {
   twitterAccountStatus,
   twitterPostCount,
   twitterPostInterval,
-} from './monitor/metrics.ts';
+} from './monitor/metrics.js';
+
+export type TwitterConfig = LocalTwitterConfig;
 
 /**
  * A manager that orchestrates all specialized Twitter logic:

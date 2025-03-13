@@ -13,7 +13,7 @@ import {
 } from '@elizaos/core';
 import { stringToUuid } from '@elizaos/core';
 import type { ClientBase } from './base';
-import { buildConversationThread, sendTweet, wait } from './utils.ts';
+import { buildConversationThread, sendTweet, wait } from './utils.js';
 import pino from 'pino';
 
 const twitterSearchTemplate =

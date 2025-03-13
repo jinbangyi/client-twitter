@@ -13,13 +13,13 @@ import {
   extractAttributes,
   cleanJsonResponse,
 } from '@elizaos/core';
-import type { ClientBase } from './base.ts';
+import type { ClientBase } from './base.js';
 import { postActionResponseFooter } from '@elizaos/core';
 import { generateTweetActions } from '@elizaos/core';
 import { type IImageDescriptionService, ServiceType } from '@elizaos/core';
-import { buildConversationThread, fetchMediaData } from './utils.ts';
-import { twitterMessageHandlerTemplate } from './interactions.ts';
-import { DEFAULT_MAX_TWEET_LENGTH } from './environment.ts';
+import { buildConversationThread, fetchMediaData } from './utils.js';
+import { twitterMessageHandlerTemplate } from './interactions.js';
+import { DEFAULT_MAX_TWEET_LENGTH } from './environment.js';
 import {
   Client,
   Events,
@@ -29,10 +29,10 @@ import {
 } from 'discord.js';
 import type { State } from '@elizaos/core';
 import type { ActionResponse } from '@elizaos/core';
-import { MediaData } from './types.ts';
+import { MediaData } from './types.js';
 import pino from 'pino';
-import { twitterPostCount } from './monitor/metrics.ts';
-import { Logger } from './settings/index.ts';
+import { twitterPostCount } from './monitor/metrics.js';
+import { Logger } from './settings/index.js';
 
 const MAX_TIMELINES_TO_FETCH = 15;
 

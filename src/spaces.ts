@@ -15,8 +15,8 @@ import {
   IdleMonitorPlugin,
   type SpeakerRequest,
 } from 'agent-twitter-client';
-import { SttTtsPlugin } from './plugins/SttTtsSpacesPlugin.ts';
-import { CustomScraper } from './scraper.ts';
+import { SttTtsPlugin } from './plugins/SttTtsSpacesPlugin.js';
+import { CustomScraper } from './scraper.js';
 import pino from 'pino';
 
 interface CurrentSpeakerState {
