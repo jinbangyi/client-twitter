@@ -1,6 +1,9 @@
 import { type Client, type IAgentRuntime } from '@elizaos/core';
 import { ClientBase } from './base.js';
-import { validateTwitterConfig, type TwitterConfig as LocalTwitterConfig } from './environment.js';
+import {
+  validateTwitterConfig,
+  type TwitterConfig as LocalTwitterConfig,
+} from './environment.js';
 import { TwitterInteractionClient } from './interactions.js';
 import { TwitterPostClient } from './post.js';
 import { TwitterSearchClient } from './search.js';

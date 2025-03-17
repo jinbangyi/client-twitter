@@ -96,13 +96,16 @@ interface PendingTweet {
 type PendingTweetApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 class RuntimeTwitterPostHelper {
-  constructor(private runtime: IAgentRuntime, private logger: pino.Logger<string, boolean>) {}
+  constructor(
+    private runtime: IAgentRuntime,
+    private logger: pino.Logger<string, boolean>,
+  ) {}
 
   /**
- * Generates and posts a new tweet. If isDryRun is true, only logs what would have been posted.
- */
+   * Generates and posts a new tweet. If isDryRun is true, only logs what would have been posted.
+   */
   async generatePostTweet(username: string, max_tweet_length: number) {
-    const roomId = stringToUuid('twitter_generate_room-' + username,);
+    const roomId = stringToUuid('twitter_generate_room-' + username);
     const topics = this.runtime.character.topics.join(', ');
     // it's better to using 4/5 MAX_LEN to prevent reach the limit
     const maxTweetLength = Math.floor((max_tweet_length * 4) / 5);
@@ -189,10 +192,7 @@ class RuntimeTwitterPostHelper {
       tweetTextForPosting = rawTweetContent.trim();
     }
 
-    if (
-      parsedResponse?.attachments &&
-      parsedResponse?.attachments.length > 0
-    ) {
+    if (parsedResponse?.attachments && parsedResponse?.attachments.length > 0) {
       mediaData = await fetchMediaData(parsedResponse.attachments);
     }
 
@@ -264,7 +264,10 @@ export class TwitterPostClient {
     this.logger = client.logger;
     this.twitterUsername = this.client.twitterConfig.TWITTER_USERNAME;
     this.isDryRun = this.client.twitterConfig.TWITTER_DRY_RUN;
-    this.runtimeTwitterPostHelper = new RuntimeTwitterPostHelper(this.runtime, this.logger);
+    this.runtimeTwitterPostHelper = new RuntimeTwitterPostHelper(
+      this.runtime,
+      this.logger,
+    );
 
     // Log configuration on initialization
     // this.logger.log('Twitter Client Configuration:');
@@ -404,9 +407,9 @@ export class TwitterPostClient {
 
       await this.generateNewTweet();
       this.backendTaskStatus.generateNewTweet = 2;
-      
+
       setTimeout(() => {
-        generateNewTweetLoop().catch( err => {
+        generateNewTweetLoop().catch((err) => {
           this.logger.error('Error in generateNewTweetLoop:', err);
         }); // Set up next iteration
       }, delay);
@@ -614,7 +617,9 @@ export class TwitterPostClient {
       if (!body?.data?.create_tweet?.tweet_results?.result) {
         const errorCode = body?.errors?.[0]?.code;
         if (errorCode === 187) {
-          this.logger.warn(`Authorization: Status is a duplicate. (187), content: ${content}`)
+          this.logger.warn(
+            `Authorization: Status is a duplicate. (187), content: ${content}`,
+          );
         } else {
           this.logger.error('Error sending tweet; Bad response:', body);
           // TODO fix 'Authorization: Status is a duplicate. (187)'
@@ -689,7 +694,10 @@ export class TwitterPostClient {
   async generateNewTweet() {
     try {
       this.logger.log('generatePostTweet start');
-      let postTweet = await this.runtimeTwitterPostHelper.generatePostTweet(this.client.profile.username, this.client.twitterConfig.MAX_TWEET_LENGTH);
+      let postTweet = await this.runtimeTwitterPostHelper.generatePostTweet(
+        this.client.profile.username,
+        this.client.twitterConfig.MAX_TWEET_LENGTH,
+      );
       this.logger.log('generatePostTweet end');
 
       // check if the tweet content is duplicate
@@ -707,7 +715,10 @@ export class TwitterPostClient {
             `The tweet content is the same as the last post, skipping: ${postTweet.tweetTextForPosting}`,
           );
           // retry once
-          postTweet = await this.runtimeTwitterPostHelper.generatePostTweet(this.client.profile.username, this.client.twitterConfig.MAX_TWEET_LENGTH);
+          postTweet = await this.runtimeTwitterPostHelper.generatePostTweet(
+            this.client.profile.username,
+            this.client.twitterConfig.MAX_TWEET_LENGTH,
+          );
         }
       }
 
@@ -731,7 +742,9 @@ export class TwitterPostClient {
         );
         this.logger.log('Tweet sent for approval');
       } else {
-        this.logger.log(`Posting new tweet:\n ${postTweet.tweetTextForPosting}`);
+        this.logger.log(
+          `Posting new tweet:\n ${postTweet.tweetTextForPosting}`,
+        );
         this.postTweet(
           this.runtime,
           this.client,

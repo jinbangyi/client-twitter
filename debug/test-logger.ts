@@ -7,7 +7,7 @@ async function start() {
   Logger.info({ '1': 1 }, 'Starting test-logger', { '2': 2 });
   Logger.info('Starting test-logger', '123', { '1': 1 });
 
-  Logger.child({ 'name': "twitter11" }).info('Starting test-logger');
+  Logger.child({ name: 'twitter11' }).info('Starting test-logger');
 }
 
 start().then(console.log).catch(console.error);

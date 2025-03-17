@@ -241,11 +241,19 @@ export class ClientBase extends EventEmitter {
     } else {
       this.twitterClient = new CustomScraper(
         {
-          transform: (data) => {
-            if (data.__typename === 'Tweet') {
-              return this.parseTweet(data);
-            }
-            return data;
+          transform: {
+            response: (data: any) => {
+              if (data.__typename === 'Tweet') {
+                return this.parseTweet(data);
+              }
+              return data;
+            },
+            request: (data: any) => {
+              if (data.__typename === 'Tweet') {
+                return this.parseTweet(data);
+              }
+              return data;
+            },
           },
         },
         this.twitterConfig.TWITTER_HTTP_PROXY,
@@ -502,9 +510,12 @@ export class ClientBase extends EventEmitter {
         !existingMemoryIds.has(this.runtimeHelper.getTweetMemoryId(tweet.id)),
     );
 
-    this.logger.debug('processingTweets: ', JSON.stringify({
-      processingTweets: tweetsToSave.map((tweet) => tweet.id).join(','),
-    }));
+    this.logger.debug(
+      'processingTweets: ',
+      JSON.stringify({
+        processingTweets: tweetsToSave.map((tweet) => tweet.id).join(','),
+      }),
+    );
 
     await this.runtimeHelper.ensureUserExists(username);
     // Save the new tweets as memories

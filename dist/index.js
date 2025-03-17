@@ -224,11 +224,19 @@ var ClientBase = class _ClientBase extends EventEmitter {
     } else {
       this.twitterClient = new CustomScraper(
         {
-          transform: (data) => {
-            if (data.__typename === "Tweet") {
-              return this.parseTweet(data);
+          transform: {
+            response: (data) => {
+              if (data.__typename === "Tweet") {
+                return this.parseTweet(data);
+              }
+              return data;
+            },
+            request: (data) => {
+              if (data.__typename === "Tweet") {
+                return this.parseTweet(data);
+              }
+              return data;
             }
-            return data;
           }
         },
         this.twitterConfig.TWITTER_HTTP_PROXY
@@ -403,9 +411,12 @@ var ClientBase = class _ClientBase extends EventEmitter {
     const tweetsToSave = allTweets.filter(
       (tweet) => !existingMemoryIds.has(this.runtimeHelper.getTweetMemoryId(tweet.id))
     );
-    this.logger.debug("processingTweets: ", JSON.stringify({
-      processingTweets: tweetsToSave.map((tweet) => tweet.id).join(",")
-    }));
+    this.logger.debug(
+      "processingTweets: ",
+      JSON.stringify({
+        processingTweets: tweetsToSave.map((tweet) => tweet.id).join(",")
+      })
+    );
     await this.runtimeHelper.ensureUserExists(username);
     await this.runtimeHelper.saveTweets(this.profile, tweetsToSave, {
       inReplyToAddAgentId: false,
@@ -1772,8 +1783,8 @@ var RuntimeTwitterPostHelper = class {
     this.logger = logger;
   }
   /**
-  * Generates and posts a new tweet. If isDryRun is true, only logs what would have been posted.
-  */
+   * Generates and posts a new tweet. If isDryRun is true, only logs what would have been posted.
+   */
   async generatePostTweet(username, max_tweet_length) {
     const roomId = stringToUuid4("twitter_generate_room-" + username);
     const topics = this.runtime.character.topics.join(", ");
@@ -1893,7 +1904,10 @@ var TwitterPostClient = class {
     this.logger = client2.logger;
     this.twitterUsername = this.client.twitterConfig.TWITTER_USERNAME;
     this.isDryRun = this.client.twitterConfig.TWITTER_DRY_RUN;
-    this.runtimeTwitterPostHelper = new RuntimeTwitterPostHelper(this.runtime, this.logger);
+    this.runtimeTwitterPostHelper = new RuntimeTwitterPostHelper(
+      this.runtime,
+      this.logger
+    );
     this.logger.log(
       `- Dry Run Mode: ${this.isDryRun ? "enabled" : "disabled"}`
     );
@@ -2111,7 +2125,9 @@ var TwitterPostClient = class {
       if (!body?.data?.create_tweet?.tweet_results?.result) {
         const errorCode = body?.errors?.[0]?.code;
         if (errorCode === 187) {
-          this.logger.warn(`Authorization: Status is a duplicate. (187), content: ${content}`);
+          this.logger.warn(
+            `Authorization: Status is a duplicate. (187), content: ${content}`
+          );
         } else {
           this.logger.error("Error sending tweet; Bad response:", body);
           this.logger.error(
@@ -2169,7 +2185,10 @@ var TwitterPostClient = class {
   async generateNewTweet() {
     try {
       this.logger.log("generatePostTweet start");
-      let postTweet = await this.runtimeTwitterPostHelper.generatePostTweet(this.client.profile.username, this.client.twitterConfig.MAX_TWEET_LENGTH);
+      let postTweet = await this.runtimeTwitterPostHelper.generatePostTweet(
+        this.client.profile.username,
+        this.client.twitterConfig.MAX_TWEET_LENGTH
+      );
       this.logger.log("generatePostTweet end");
       const lastPost = await this.runtime.cacheManager.get(`twitter/${this.client.profile.username}/lastPost`);
       if (lastPost && lastPost.id) {
@@ -2180,7 +2199,10 @@ var TwitterPostClient = class {
           this.logger.warn(
             `The tweet content is the same as the last post, skipping: ${postTweet.tweetTextForPosting}`
           );
-          postTweet = await this.runtimeTwitterPostHelper.generatePostTweet(this.client.profile.username, this.client.twitterConfig.MAX_TWEET_LENGTH);
+          postTweet = await this.runtimeTwitterPostHelper.generatePostTweet(
+            this.client.profile.username,
+            this.client.twitterConfig.MAX_TWEET_LENGTH
+          );
         }
       }
       if (this.isDryRun) {
@@ -2202,8 +2224,10 @@ var TwitterPostClient = class {
         );
         this.logger.log("Tweet sent for approval");
       } else {
-        this.logger.log(`Posting new tweet:
- ${postTweet.tweetTextForPosting}`);
+        this.logger.log(
+          `Posting new tweet:
+ ${postTweet.tweetTextForPosting}`
+        );
         this.postTweet(
           this.runtime,
           this.client,
@@ -3976,7 +4000,8 @@ var TwitterSpaceClient = class {
       mode: "INTERACTIVE",
       title: chosenTopic,
       description: `Discussion about ${chosenTopic}`,
-      languages: ["en"]
+      languages: ["en"],
+      record: false
     };
   }
   async startSpace(config) {
@@ -4225,12 +4250,12 @@ var TwitterManager = class {
   search;
   interaction;
   space;
-  // TODO get current state of the manager
-  // TODO get the queue length
-  // TODO get the manager's health
-  // TODO count the errors
-  async stop() {
-    return stop(this.runtime);
+  async stop(runtime) {
+    return await stop(runtime || this.runtime);
+  }
+  async start(runtime) {
+    this.client.logger.warn("Twitter client start again by TwitterManager");
+    return await TwitterClientInterface.start(runtime);
   }
 };
 function hidePassword(url) {
@@ -4321,6 +4346,7 @@ async function stop(_runtime) {
 var index_default = TwitterClientInterface;
 export {
   TwitterClientInterface,
+  TwitterManager,
   index_default as default
 };
 //# sourceMappingURL=index.js.map

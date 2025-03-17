@@ -35,7 +35,7 @@ async function generateFiller(
 ): Promise<string> {
   try {
     const context = composeContext({
-      state: { fillerType },
+      state: { fillerType } as any,
       template: `
 # INSTRUCTIONS:
 You are generating a short filler message for a Twitter Space. The filler type is "{{fillerType}}".
@@ -86,7 +86,7 @@ async function generateTopicsIfEmpty(
 ): Promise<string[]> {
   try {
     const context = composeContext({
-      state: {},
+      state: {} as any,
       template: `
 # INSTRUCTIONS:
 Please generate 5 short topic ideas for a Twitter Space about technology or random interesting subjects.
@@ -264,6 +264,7 @@ export class TwitterSpaceClient {
       title: chosenTopic,
       description: `Discussion about ${chosenTopic}`,
       languages: ['en'],
+      record: false,
     };
   }
 
@@ -296,7 +297,7 @@ export class TwitterSpaceClient {
         this.logger.log('[Space] Using SttTtsPlugin');
         const sttTts = new SttTtsPlugin();
         this.sttTtsPlugin = sttTts;
-        this.currentSpace.use(sttTts, {
+        this.currentSpace.use(sttTts as any, {
           runtime: this.runtime,
           client: this.client,
           spaceId: this.spaceId,
