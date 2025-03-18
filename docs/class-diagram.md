@@ -1,21 +1,48 @@
-# class diagram
+# sequence diagram
 
-update twitter config
+user start twitter client
 
-```sequenceDiagram
-    participant User
-    participant Core
-    participant ClientTwitter
+```mermaid
+sequenceDiagram
+    User->>Core: start twitter client
+    Core->>TaskManager: start twitter client task
+    TaskManager->>Mongodb: create or update a task
+    Mongodb-->>TaskManager: the task object
+    TaskManager-->>Core: the task object
+    Core-->>User: twitter client started
+```
 
-    User ->> Core: update twitter client
-    Core ->> Core: get http proxy of the agent
-    Core ->> ClientTwitter: start twitter client with the http proxy
-    ClientTwitter ->> ClientTwitter: start twitter client
-    ClientTwitter ->> Core: twitter client started
-    loop Every 5 minute
-        ClientTwitter ->> ClientTwitter: execute the action or not
+backend task watch the task status
+
+```mermaid
+sequenceDiagram
+    box TaskWatcherA
+    participant TaskWatcherA
     end
-    Core ->> User: twitter client started
 
-    User ->> Core: stop twitter client
+    box Tools
+    participant Mongodb
+    participant TwitterClient
+    end
+
+    box TaskWatcherB
+    participant TaskWatcherB
+    end
+
+    TaskWatcherA->>Mongodb: watch the task updateTime
+    Mongodb-->>TaskWatcherA: task changed
+
+    TaskWatcherA->>TaskWatcherA: check if the task is managed by myself
+    TaskWatcherA->>TaskWatcherA: check from the action and status, determine which action should use
+
+    TaskWatcherA->>TwitterClient: start, stop, restart
+
+    TaskWatcherB->>Mongodb: watch the task updateTime
+    Mongodb-->>TaskWatcherB: task changed
+
+    TaskWatcherB->>TaskWatcherB: check if the task is managed by myself
+    TaskWatcherB->>TaskWatcherB: check from the action and status, determine which action should use
+
+    TaskWatcherB->>TwitterClient: start, stop, restart
+
 ```

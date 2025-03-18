@@ -12,8 +12,8 @@ import { SqliteDatabaseAdapter } from '@elizaos/adapter-sqlite';
 import Database from 'better-sqlite3';
 import express from 'express';
 
-import { TwitterClientInterface } from '../src/index';
-import { wrapperFetchFunction } from '../src/scraper';
+import { TwitterClientInterface } from '../packages/client-twitter/src/index';
+import { wrapperFetchFunction } from '../packages/client-twitter/src/scraper';
 // import { register } from '../src/monitor/metrics';
 import { exit } from 'process';
 import client from 'prom-client';

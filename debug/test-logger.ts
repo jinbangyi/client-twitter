@@ -1,4 +1,4 @@
-import { Logger } from '../src/settings';
+import { Logger } from '../packages/client-twitter/src/settings';
 
 async function start() {
   Logger.info('Starting test-logger');

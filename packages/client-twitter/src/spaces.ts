@@ -7,7 +7,7 @@ import {
   type ITranscriptionService,
   type TwitterSpaceDecisionOptions,
 } from '@elizaos/core';
-import type { ClientBase } from './base';
+import type { ClientBase } from './base.js';
 import {
   Space,
   type SpaceConfig,

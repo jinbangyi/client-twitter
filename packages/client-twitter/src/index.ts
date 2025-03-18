@@ -2,7 +2,7 @@ import { type Client, type IAgentRuntime } from '@elizaos/core';
 import { ClientBase } from './base.js';
 import {
   validateTwitterConfig,
-  type TwitterConfig as LocalTwitterConfig,
+  type TwitterConfig,
 } from './environment.js';
 import { TwitterInteractionClient } from './interactions.js';
 import { TwitterPostClient } from './post.js';
@@ -19,8 +19,6 @@ import {
   twitterPostCount,
   twitterPostInterval,
 } from './monitor/metrics.js';
-
-export type TwitterConfig = LocalTwitterConfig;
 
 /**
  * A manager that orchestrates all specialized Twitter logic:
@@ -210,4 +208,16 @@ async function stop(_runtime: IAgentRuntime) {
   }
 }
 
+export const TwitterClient: Client & {
+  getStatus(runtime: IAgentRuntime): TwitterClientStatus;
+} = {
+  ...TwitterClientInterface,
+  getStatus: (runtime: IAgentRuntime) => {
+    const twitterConfig = SETTINGS.agent[runtime.agentId];
+    const username = twitterConfig.TWITTER_USERNAME;
+    return SETTINGS.account[username].status;
+  },
+}
+
 export default TwitterClientInterface;
+export { TwitterClientStatus, TwitterConfig }

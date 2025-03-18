@@ -1,4 +1,4 @@
-import { wrapperFetchFunction } from '../src/scraper';
+import { wrapperFetchFunction } from '../packages/client-twitter/src/scraper';
 
 const proxyUrl = process.env.TWITTER_HTTP_PROXY;
 
