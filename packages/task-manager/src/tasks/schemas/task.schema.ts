@@ -1,6 +1,7 @@
 import { TwitterConfig } from '@elizaos/client-twitter';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { taskMongodbCollectionName } from '../../constant';
+
+import { taskMongodbCollectionName } from '../../constant.js';
 
 // completed mean the task is finished by it self
 export enum TaskStatusName {
@@ -40,19 +41,16 @@ export class Task {
   @Prop({ type: Date, default: Date.now })
   createdAt: Date;
 
-  @Prop({ type: Date, default: Date.now })
+  @Prop({ type: String })
   createdBy: string;
 
   @Prop({ type: Date, default: Date.now })
   updatedAt: Date;
-
-  @Prop({ type: Date, default: Date.now })
-  lock: Date;
 }
 
 export const TaskSchema = SchemaFactory.createForClass(Task);
 
 TaskSchema.index({ title: 1 }, { unique: true });
 TaskSchema.index({ createdBy: 1, status: 1 });
-TaskSchema.index({ updatedAt: 1 });
-TaskSchema.index({ title: 1, lock: 1 });
+TaskSchema.index({ updatedAt: 1, status: 1 });
+TaskSchema.index({ action: 1, status: 1 });

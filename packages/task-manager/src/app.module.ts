@@ -1,22 +1,41 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { TasksModule } from './tasks/tasks.module';
-import { WatcherModule } from './watcher/watcher.module';
-import { HealthModule } from './health/health.module';
+import { TasksModule } from './tasks/tasks.module.js';
+import { WatcherModule } from './watcher/watcher.module.js';
+import { HealthModule } from './health/health.module.js';
 import { MongooseModule } from '@nestjs/mongoose';
-import { mongodbCaFile, mongodbUri } from './constant';
+import { ConfigModule } from '@nestjs/config';
+import { join } from 'path';
+import { mongodbCaFile, mongodbDbName, mongodbUri } from './constant.js';
+import { LoggerMiddleware } from './middleware/logger.middleware.js';
+import { SharedModule } from './shared/health.module.js';
 
 @Module({
   imports: [
+    SharedModule,
     TasksModule,
     WatcherModule,
     HealthModule,
 
     EventEmitterModule.forRoot(),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: join(process.cwd(), '.env'),
+    }),
     MongooseModule.forRoot(
-      mongodbUri,
-      { tlsAllowInvalidHostnames: true, tlsCAFile: mongodbCaFile },
+      mongodbUri!,
+      {
+        dbName: mongodbDbName,
+        tlsAllowInvalidHostnames: true,
+        tlsCAFile: mongodbCaFile,
+        tls: mongodbCaFile ? true: false,
+      }
     ),
   ],
 })
-export class TaskManagerModule {}
+
+export class TaskManagerModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(LoggerMiddleware).forRoutes('*'); // 应用于所有路由
+  }
+}

@@ -28,13 +28,13 @@
     "allowArbitraryExtensions": true
   },
   "include": [
-    "packages/client-twitter/src/**/*.ts",
+    "packages/**/*.ts",
     "debug/*.ts"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "packages/client-twitter/src/**/*.d.ts",
+    "packages/**/*.d.ts",
     "types/**/*.test.ts"
   ]
 }

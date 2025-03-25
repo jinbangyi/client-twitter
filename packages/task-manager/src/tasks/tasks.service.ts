@@ -1,57 +1,64 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Task, TaskStatusName } from './schemas/task.schema';
-import { lockTimeout, taskTimeout, workerUuid } from '../constant';
+
+import { Task, TaskActionName, TaskStatusName } from './schemas/task.schema.js';
+import { taskTimeout } from '../constant.js';
 
 @Injectable()
 export class TasksService {
-  constructor(@InjectModel(Task.name) private readonly taskModel: Model<Task>) {}
+  constructor(@InjectModel(Task.name) private readonly taskModel: Model<Task>) { }
 
   async create(createTask: Task): Promise<Task> {
     const createdTask = new this.taskModel(createTask);
     return createdTask.save();
   }
 
-  async update(id: string, updateTask: Partial<Task>): Promise<Task> {
+  async update(id: string, updateTask: Partial<Task>): Promise<Task | null> {
     updateTask.updatedAt = new Date();
     return this.taskModel.findByIdAndUpdate(id, updateTask, { new: true });
   }
 
-  async getTask(id: string): Promise<Task> {
-    return this.taskModel.findById(id);
+  async updateByTitle(title: string, updateTask: Partial<Task>): Promise<Task | null> {
+    updateTask.updatedAt = new Date();
+    return this.taskModel.findOneAndUpdate({ title }, updateTask, { new: true });
   }
 
-  async startTask(id: string): Promise<Task> {
+  async getTask(id: string): Promise<Task | null> {
+    return this.taskModel.findById(id).exec();
+  }
+
+  async getTaskByTitle(title: string): Promise<Required<Task> | null> {
+    return this.taskModel.findOne({ title });
+  }
+
+  async getTaskByTitles(titles: string[]): Promise<Task[]> {
+    return this.taskModel.find({ title: { $in: titles } }).exec();
+  }
+
+  async startTask(id: string): Promise<Task | null> {
     return this.update(id, { action: 'start' });
   }
 
-  async stopTask(id: string): Promise<Task> {
+  async stopTask(id: string): Promise<Task | null> {
     return this.update(id, { action: 'stop' });
   }
 
-  async restartTask(id: string): Promise<Task> {
+  async restartTask(id: string): Promise<Task | null> {
     return this.update(id, { action: 'restart' });
   }
 
-  async getActiveWorkerOwnedOrTimeoutTasks(): Promise<Task[]> {
-    // get all timeout tasks
-    // get all managed tasks
-    const tasks = await this.taskModel.find({
+  async getNewTasks(): Promise<Task[]> {
+    const query = {
       $or: [
-        { createdBy: workerUuid, status: TaskStatusName.RUNNING },
-        { updatedAt: { $lt: new Date(Date.now() - taskTimeout) } },
+        // get the task require to start
+        { action: TaskActionName.START, status: TaskStatusName.STOPPED },
+        // get the timeout task
+        { updatedAt: { $lt: new Date(Date.now() - taskTimeout) }, status: TaskStatusName.RUNNING },
       ]
-    });
+    };
+    const tasks = await this.taskModel.find(query);
 
     return tasks;
-  }
-
-  async checkTimeoutTaskLock(timeoutTaskName: string): Promise<boolean> {
-    const task = await this.taskModel.findOneAndUpdate(
-      { title: timeoutTaskName, lock: { $lt: new Date(Date.now() - lockTimeout) } },
-      { lock: new Date(), updatedAt: new Date(), createdBy: workerUuid },
-    );
-    return task && task.updatedAt < new Date(Date.now() - taskTimeout);
   }
 }

@@ -1,12 +1,20 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
-import { WatcherService } from './watcher.service';
+import { MongooseModule } from '@nestjs/mongoose';
+
+import { WatcherService } from './watcher.service.js';
+import { TasksService } from '../tasks/tasks.service.js';
+import { Task, TaskSchema } from '../tasks/schemas/task.schema.js';
+import { MongodbLock, MongodbLockSchema } from './schemas/lock.schema.js';
+import { MongodbLockService } from './lock.service.js';
 
 @Module({
   imports: [
-    ScheduleModule.forRoot()
+    ScheduleModule.forRoot(),
+    MongooseModule.forFeature([{ name: Task.name, schema: TaskSchema }]),
+    MongooseModule.forFeature([{ name: MongodbLock.name, schema: MongodbLockSchema }]),
   ],
-  providers: [WatcherService],
+  providers: [WatcherService, TasksService, MongodbLockService],
   exports: [WatcherService],
 })
-export class WatcherModule {}
+export class WatcherModule { }

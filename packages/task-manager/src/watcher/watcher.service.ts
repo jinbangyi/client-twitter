@@ -1,49 +1,79 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { type IAgentRuntime } from '@elizaos/core';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TwitterClient, TwitterClientStatus } from '@elizaos/client-twitter';
-import { TasksService } from '../tasks/tasks.service';
-import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
-import { workerUuid } from '../constant';
-import { TaskEvent, TaskEventName } from '../tasks/interfaces/task.interface';
-import { Task, TaskActionName, TaskStatusName } from '../tasks/schemas/task.schema';
+
+import { TasksService } from '../tasks/tasks.service.js';
+import { taskTimeout, workerUuid } from '../constant.js';
+import { TaskEvent, TaskEventName } from '../tasks/interfaces/task.interface.js';
+import { Task, TaskActionName, TaskStatusName } from '../tasks/schemas/task.schema.js';
+import { MongodbLockService } from './lock.service.js';
+import { SharedService } from '../shared/shared.service.js';
+
+function areRecordsEqual<T>(recordA: Record<string, T>, recordB: Record<string, T>): boolean {
+  const keysA = Object.keys(recordA);
+  const keysB = Object.keys(recordB);
+
+  if (keysA.length !== keysB.length) {
+    return false;
+  }
+
+  for (const key of keysA) {
+    if (recordB[key] !== recordA[key]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+export function CatchCronError(cronTime: string) {
+  const logger = new Logger('CronDecorator');
+
+  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
+    const originalMethod = descriptor.value;
+
+    descriptor.value = async function (...args: any[]) {
+      try {
+        await originalMethod.apply(this, args);
+      } catch (error) {
+        logger.error(`Error in cron job "${propertyName}": ${error}`);
+        throw error;
+      }
+    };
+
+    return Cron(cronTime)(target, propertyName, descriptor);
+  };
+}
 
 @Injectable()
 export class WatcherService {
-  private readonly logger = new Logger(TasksService.name);
-  // task.title -> task
-  private tasks: Map<string, Task> = new Map();
-  // task.title -> runtime
-  private taskRuntime: Map<string, IAgentRuntime> = new Map();
+  private readonly logger = new Logger(`${WatcherService.name}_${workerUuid}`);
 
   constructor(
     private readonly tasksService: TasksService,
+    private readonly mongodbLockService: MongodbLockService,
+    private sharedService: SharedService,
     private eventEmitter: EventEmitter2
   ) { }
 
-  /**
-   * inject task runtime to watcher service
-   * @param taskTitle task title
-   * @param runtime client twitter's runtime
-   */
-  async setTaskRuntime(taskTitle: string, runtime: IAgentRuntime) {
-    if (this.taskRuntime.has(taskTitle)) {
-      if (this.tasks.has(taskTitle)) {
-        await this.onTaskStop(new TaskEvent({
-          task: this.tasks.get(taskTitle),
-          message: `Task ${taskTitle} stopped`,
-        }));
-      }
-    }
-    this.taskRuntime.set(taskTitle, runtime);
+  get tasks(): Map<string, Task> {
+    return this.sharedService.tasks;
   }
 
+  get taskRuntime(): Map<string, IAgentRuntime> {
+    return this.sharedService.taskRuntime;
+  }
+
+  // update local task status return task and runtime
   private updateLocalTask(taskTitle: string) {
     const task = this.tasks.get(taskTitle);
     if (!task) {
       this.logger.warn(`task ${taskTitle} not found`);
       return;
     }
+
     const runtime = this.taskRuntime.get(task.title);
     if (!runtime) {
       this.logger.warn(`task ${task.title} runtime not found`);
@@ -66,132 +96,154 @@ export class WatcherService {
     return { task, runtime };
   }
 
-  @Cron(CronExpression.EVERY_5_MINUTES)
-  async checkTasksStatus() {
-    this.logger.debug(`start check ${workerUuid} tasks`);
+  // @CatchCronError(CronExpression.EVERY_MINUTE)
+  @CatchCronError(CronExpression.EVERY_SECOND)
+  async getNewTasks() {
+    this.logger.debug(`start get new tasks`);
 
-    const tasks = await this.tasksService.getActiveWorkerOwnedOrTimeoutTasks();
+    const tasks = await this.tasksService.getNewTasks();
     for (const task of tasks) {
-      if (task.createdBy === workerUuid) {
-        // check local tasks
-        const localTask = this.updateLocalTask(task.title)?.task;
+      if (this.tasks.has(task.title)) {
+        this.logger.warn(`task ${task.title} already in local tasks`);
+        continue;
+      }
+
+      if (!this.taskRuntime.has(task.title)) {
+        this.logger.error(`task ${task.title} runtime not found`);
+        continue;
+      }
+
+      if (await this.mongodbLockService.acquireLock(task.title)) {
+        try {
+          // check if the task is timeout
+          const latestTask = await this.tasksService.getTaskByTitle(task.title);
+          if (!latestTask) {
+            this.logger.error(`task ${task.title} not found`);
+            continue;
+          }
+
+          if (latestTask.updatedAt.getTime() + taskTimeout < Date.now()) {
+            // update the task status
+            await this.tasksService.updateByTitle(task.title, { status: TaskStatusName.STOPPED });
+            // start the task
+            this.eventEmitter.emit(
+              TaskEventName.TASK_CREATED,
+              new TaskEvent({
+                task,
+                runtime: this.taskRuntime.get(task.title)!,
+                message: `Task ${task.id} created`,
+              }),
+            );
+            // set tasks
+            this.tasks.set(task.title, task);
+          } else {
+            this.logger.warn(`task ${task.title} is not timeout`);
+          }
+        } finally {
+          await this.mongodbLockService.releaseLock(task.title);
+        }
+      }
+    }
+
+    this.logger.debug(`end get new tasks ${tasks.length}`);
+  }
+
+  // @CatchCronError(CronExpression.EVERY_MINUTE)
+  @CatchCronError(CronExpression.EVERY_10_SECONDS)
+  async checkTaskActionOrConfigurationChanged() {
+    this.logger.debug(`start check task action change`);
+
+    const tasks = await this.tasksService.getTaskByTitles(Array.from(this.tasks.keys()));
+    for (const task of tasks) {
+      // if action changed
+      if (task.action !== this.tasks.get(task.title)!.action) {
+        const localTask = this.updateLocalTask(task.title);
         if (!localTask) {
-          // start task
+          this.logger.error(`localTask ${task.title} not found`);
+          continue;
+        }
+
+        // the local task do not maintain stopped task, so ignore the task.action=start
+
+        if (task.action === TaskActionName.STOP) {
+          // stop the task
           this.eventEmitter.emit(
-            TaskEventName.TASK_START,
+            TaskEventName.TASK_STOP,
             new TaskEvent({
               task,
-              message: `Task ${task.id} started`,
+              runtime: localTask.runtime,
+              message: `Task ${task.id} stopped`,
             }),
           );
-        } else {
-          // check local task status
-          if (task.action === TaskActionName.START && localTask.status === TaskStatusName.RUNNING) {
-            await this.tasksService.update(task.id, { createdBy: workerUuid });
-          } else if (task.action === TaskActionName.STOP && localTask.status === TaskStatusName.STOPPED) {
-            await this.tasksService.update(task.id, { createdBy: workerUuid });
-          } else if (task.action === TaskActionName.RESTART && localTask.status === TaskStatusName.RESTARTED) {
-            await this.tasksService.update(task.id, { createdBy: workerUuid });
-          } else {
-            // if status not match the action, then execute the action
-            if (task.action === TaskActionName.START) {
-              this.eventEmitter.emit(
-                TaskEventName.TASK_START,
-                new TaskEvent({
-                  task,
-                  message: `Task ${task.id} started`,
-                }),
-              );
-            } else if (task.action === TaskActionName.STOP) {
-              this.eventEmitter.emit(
-                TaskEventName.TASK_STOP,
-                new TaskEvent({
-                  task,
-                  message: `Task ${task.id} stopped`,
-                }),
-              );
-            } else if (task.action === TaskActionName.RESTART) {
-              this.eventEmitter.emit(
-                TaskEventName.TASK_RESTART,
-                new TaskEvent({
-                  task,
-                  message: `Task ${task.id} restarted`,
-                }),
-              );
-            } else {
-              this.logger.error(`unknown action ${task.action}`);
-            }
-          }
-        }
-      } else {
-        // if task not started by any worker, start it
-        const ok = await this.tasksService.checkTimeoutTaskLock(task.title);
-        if (ok) {
-          // if task timeout, start it
+          // TODO, what if stop failed
+          this.tasks.delete(task.title);
+          this.taskRuntime.delete(task.title);
+        } else if (task.action === TaskActionName.RESTART) {
+          // restart the task
           this.eventEmitter.emit(
-            TaskEventName.TASK_START,
+            TaskEventName.TASK_RESTART,
             new TaskEvent({
               task,
+              runtime: localTask.runtime,
               message: `Task ${task.id} restarted`,
             }),
           );
+          this.tasks.set(task.title, task);
         } else {
-          this.logger.warn(`ignore the timeout task ${task.title}`);
+          this.logger.error(`unknown action ${task.action}`);
         }
+      } else if (
+        // configuration changed
+        !areRecordsEqual(task.configuration, this.tasks.get(task.title)!.configuration)
+      ) {
+        const localTask = this.updateLocalTask(task.title);
+        if (!localTask) {
+          this.logger.error(`localTask ${task.title} not found`);
+          continue;
+        }
+
+        // restart the task
+        this.eventEmitter.emit(
+          TaskEventName.TASK_RESTART,
+          new TaskEvent({
+            task,
+            runtime: localTask.runtime,
+            message: `Task ${task.id} restarted`,
+          }),
+        );
+        this.tasks.set(task.title, task);
+      } else {
+        // update task update time
+        await this.tasksService.updateByTitle(task.title, { createdBy: workerUuid });
       }
     }
 
-    const notCheckedTasks = tasks.filter(task => !this.tasks.has(task.title));
-    // stop not checked tasks
-    notCheckedTasks.forEach(task => {
-      this.eventEmitter.emit(
-        TaskEventName.TASK_STOP,
-        new TaskEvent({
-          task,
-          message: `Task ${task.id} stopped`,
-        }),
-      );
-    });
-
-    this.logger.debug(`end check ${workerUuid} tasks`);
+    this.logger.debug(`end check task action change ${this.tasks.size}`);
   }
 
-  @OnEvent([TaskEventName.TASK_CREATED, TaskEventName.TASK_START])
-  async onTaskCreated(payload: TaskEvent) {
-    this.logger.debug(`start task ${payload.task.title}`);
-    let localTask = this.updateLocalTask(payload.task.title);
-    if (localTask) {
-      await TwitterClient.start(localTask.runtime);
-      // update task status
-      await this.tasksService.update(payload.task.id, { createdBy: workerUuid, status: TaskStatusName.RUNNING });
-      this.tasks.set(payload.task.title, payload.task);
-    }
-  }
+  // @CatchCronError(CronExpression.EVERY_30_SECONDS)
+  @CatchCronError(CronExpression.EVERY_10_SECONDS)
+  async checkLocalTasksStatus() {
+    this.logger.debug(`start check local tasks`);
 
-  @OnEvent([TaskEventName.TASK_RESTART, TaskEventName.TASK_UPDATED])
-  async onTaskRestarted(payload: TaskEvent) {
-    // TODO not all config update require restart
-    this.logger.debug(`restart task ${payload.task.title}`);
-    let localTask = this.updateLocalTask(payload.task.title);
-    if (localTask) {
-      await TwitterClient.stop(localTask.runtime);
-      await TwitterClient.start(localTask.runtime);
-      await this.tasksService.update(payload.task.id, { createdBy: workerUuid, status: TaskStatusName.RESTARTED });
-    }
-  }
-
-  @OnEvent(TaskEventName.TASK_STOP)
-  async onTaskStop(payload: TaskEvent) {
-    this.logger.debug(`stop task ${payload.task.title}`);
-    let localTask = this.updateLocalTask(payload.task.title);
-    if (localTask) {
-      // if task status is stopped, then remove it
-      if (localTask.task.status === TaskStatusName.STOPPED) {
-        this.tasks.delete(payload.task.title);
+    for (const task of this.tasks) {
+      const localTask = this.updateLocalTask(task[0]);
+      if (!localTask) {
+        this.logger.error(`localTask ${task[0]} not found`);
+        continue;
       }
 
-      await TwitterClient.stop(localTask.runtime);
-      await this.tasksService.update(payload.task.id, { createdBy: workerUuid, status: TaskStatusName.STOPPED });
+      if (localTask.task.action === TaskActionName.START && localTask.task.status !== TaskStatusName.RUNNING) {
+        // start the task
+      } else if (localTask.task.action === TaskActionName.STOP && localTask.task.status !== TaskStatusName.STOPPED) {
+        // stop the task
+      } else if (localTask.task.action === TaskActionName.RESTART && localTask.task.status !== TaskStatusName.RESTARTED) {
+        // restar the task
+      } else {
+        this.logger.debug(`task ${localTask.task.title} status is expected`);
+      }
     }
+
+    this.logger.debug(`end check local tasks ${this.tasks.size}`);
   }
 }

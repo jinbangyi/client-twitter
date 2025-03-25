@@ -1,4 +1,4 @@
-import { type Client, type IAgentRuntime } from '@elizaos/core';
+import { type Client, type IAgentRuntime, ActionTimelineType } from '@elizaos/core';
 import { ClientBase } from './base.js';
 import {
   validateTwitterConfig,
@@ -220,4 +220,4 @@ export const TwitterClient: Client & {
 }
 
 export default TwitterClientInterface;
-export { TwitterClientStatus, TwitterConfig }
+export { TwitterClientStatus, TwitterConfig, ActionTimelineType }
