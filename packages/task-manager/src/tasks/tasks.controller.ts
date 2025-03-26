@@ -117,7 +117,10 @@ export class TasksController {
   async suspendedTask(
     @Param('title') title: string
   ) {
-    const ret = await this.tasksService.updateByTitle(title, { tags: ['suspended'] });
+    // pause the task for 4 hours
+    const ret = await this.tasksService.updateByTitle(
+      title, { tags: ['suspended'], pauseUntil: new Date(Date.now() + 1000 * 60 * 60 * 4) }
+    );
     if (!ret) {
       // http 400 error
       throw new BadRequestException('the task not exists');

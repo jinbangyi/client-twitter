@@ -54,6 +54,9 @@ export class Task {
 
   @Prop({ type: Date, default: Date.now })
   updatedAt: Date;
+
+  @Prop({ type: Date })
+  pauseUntil?: Date;
 }
 
 export const TaskSchema = SchemaFactory.createForClass(Task);

@@ -329,7 +329,7 @@ export class ClientBase extends EventEmitter {
         }
       } catch (error) {
         // if the error eq 'Login attempt failed: Invalid URL', it should be `Account suspended`
-        if (error.message === 'Login attempt failed: Invalid URL') {
+        if (error.message === 'Invalid URL') {
           // upload the info to task-manager, so that do not retry again
           await taskManagerCli.tasksControllerSuspendedTask(username);
           // await taskManagerCli.tasksControllerTagTask(username);

@@ -96,6 +96,20 @@ export class WatcherService {
     return { task, runtime };
   }
 
+  private stopTask(task: Task, runtime: IAgentRuntime) {
+    this.eventEmitter.emit(
+      TaskEventName.TASK_STOP,
+      new TaskEvent({
+        task,
+        runtime,
+        message: `Task ${task.title} stopped`,
+      }),
+    );
+    // TODO, what if stop failed
+    this.tasks.delete(task.title);
+    this.taskRuntime.delete(task.title);
+  }
+
   @CatchCronError(CronExpression.EVERY_MINUTE)
   // @CatchCronError(CronExpression.EVERY_10_SECONDS)
   async getNewTasks() {
@@ -159,29 +173,18 @@ export class WatcherService {
 
     const tasks = await this.tasksService.getTaskByTitles(Array.from(this.tasks.keys()));
     for (const task of tasks) {
+      const localTask = this.updateLocalTask(task.title);
+      if (!localTask) {
+        this.logger.error(`localTask ${task.title} not found`);
+        continue;
+      }
+
       // if action changed
       if (task.action !== this.tasks.get(task.title)!.action) {
-        const localTask = this.updateLocalTask(task.title);
-        if (!localTask) {
-          this.logger.error(`localTask ${task.title} not found`);
-          continue;
-        }
-
         // the local task do not maintain stopped task, so ignore the task.action=start
 
         if (task.action === TaskActionName.STOP) {
-          // stop the task
-          this.eventEmitter.emit(
-            TaskEventName.TASK_STOP,
-            new TaskEvent({
-              task,
-              runtime: localTask.runtime,
-              message: `Task ${task.id} stopped`,
-            }),
-          );
-          // TODO, what if stop failed
-          this.tasks.delete(task.title);
-          this.taskRuntime.delete(task.title);
+          this.stopTask(task, localTask.runtime);
         } else if (task.action === TaskActionName.RESTART) {
           // restart the task
           this.eventEmitter.emit(
@@ -200,12 +203,6 @@ export class WatcherService {
         // configuration changed
         !areRecordsEqual(task.configuration, this.tasks.get(task.title)!.configuration)
       ) {
-        const localTask = this.updateLocalTask(task.title);
-        if (!localTask) {
-          this.logger.error(`localTask ${task.title} not found`);
-          continue;
-        }
-
         // restart the task
         this.eventEmitter.emit(
           TaskEventName.TASK_RESTART,
@@ -217,8 +214,13 @@ export class WatcherService {
         );
         this.tasks.set(task.title, task);
       } else {
-        // update task update time
-        await this.tasksService.updateByTitle(task.title, { createdBy: workerUuid });
+        if (task.pauseUntil && task.pauseUntil > new Date()) {
+          this.logger.debug(`task ${task.title} is paused`);
+          this.stopTask(task, localTask.runtime);
+        } else {
+          // update task update time
+          await this.tasksService.updateByTitle(task.title, { createdBy: workerUuid });
+        }
       }
     }
 

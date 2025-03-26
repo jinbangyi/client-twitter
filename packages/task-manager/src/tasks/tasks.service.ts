@@ -35,7 +35,8 @@ export class TasksService {
   }
 
   async getTaskByTitles(titles: string[]): Promise<Task[]> {
-    return this.taskModel.find({ title: { $in: titles } }).exec();
+    const tasks = await this.taskModel.find({ title: { $in: titles } });
+    return tasks;
   }
 
   async startTask(id: string): Promise<Task | null> {
@@ -59,7 +60,15 @@ export class TasksService {
         { updatedAt: { $lt: new Date(Date.now() - taskTimeout) }, status: TaskStatusName.RUNNING },
       ]
     };
-    const tasks = await this.taskModel.find(query);
+    let tasks = await this.taskModel.find(query);
+    // remove the task that is paused
+    tasks = tasks.filter(task => {
+      // pauseUntil
+      if (task.pauseUntil && task.pauseUntil > new Date()) {
+        return false;
+      }
+      return true;
+    });
 
     return tasks;
   }
