@@ -11,7 +11,7 @@
     },
     "@elizaos/client-twitter#build": {
       "outputs": ["dist/**"],
-      "dependsOn": []
+      "dependsOn": ["@xnomad/task-manager-cli#build"]
     },
     "@xnomad/task-manager-cli#build": {
       "outputs": ["dist/**"],

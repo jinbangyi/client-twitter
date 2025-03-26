@@ -20,6 +20,9 @@ export class TwitterClientStarter implements Client {
 
     const task = new Tasks({
       baseURL: taskManagerBaseEndpoint,
+      headers: {
+        'X-ADMIN-API-KEY': process.env.TASK_MANAGER_ADMIN_API_KEY!,
+      }
     });
     if(!SHARED_SERVICE.taskRuntime.has(twitterConfig.TWITTER_USERNAME!)) {
       SHARED_SERVICE.setTaskRuntime(twitterConfig.TWITTER_USERNAME!, runtime);

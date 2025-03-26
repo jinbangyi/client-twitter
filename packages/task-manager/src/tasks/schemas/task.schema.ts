@@ -19,6 +19,11 @@ export enum TaskActionName {
 }
 export type TaskAction = 'restart' | 'stop' | 'start';
 
+export enum TaskTagName {
+  SUSPENDED = 'suspended',
+}
+export type TaskTags = 'suspended';
+
 @Schema({ collection: taskMongodbCollectionName })
 export class Task {
   id?: string;
@@ -37,6 +42,9 @@ export class Task {
 
   @Prop({ type: Object, required: true })
   configuration: TwitterConfig & Record<string, any>;
+
+  @Prop({ type: [String], enum: TaskTagName })
+  tags: TaskTags[];
 
   @Prop({ type: Date, default: Date.now })
   createdAt: Date;

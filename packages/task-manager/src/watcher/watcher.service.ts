@@ -96,8 +96,8 @@ export class WatcherService {
     return { task, runtime };
   }
 
-  // @CatchCronError(CronExpression.EVERY_MINUTE)
-  @CatchCronError(CronExpression.EVERY_10_SECONDS)
+  @CatchCronError(CronExpression.EVERY_MINUTE)
+  // @CatchCronError(CronExpression.EVERY_10_SECONDS)
   async getNewTasks() {
     this.logger.debug(`start get new tasks`);
 
@@ -151,8 +151,9 @@ export class WatcherService {
     this.logger.debug(`end get new tasks ${tasks.length}`);
   }
 
-  // @CatchCronError(CronExpression.EVERY_MINUTE)
-  @CatchCronError(CronExpression.EVERY_10_SECONDS)
+  // TODO add action when a twitter client is tagged suspended
+  @CatchCronError(CronExpression.EVERY_MINUTE)
+  // @CatchCronError(CronExpression.EVERY_10_SECONDS)
   async checkTaskActionOrConfigurationChanged() {
     this.logger.debug(`start check task action change`);
 
@@ -224,8 +225,8 @@ export class WatcherService {
     this.logger.debug(`end check task action change ${this.tasks.size}`);
   }
 
-  // @CatchCronError(CronExpression.EVERY_30_SECONDS)
-  @CatchCronError(CronExpression.EVERY_10_SECONDS)
+  @CatchCronError(CronExpression.EVERY_30_SECONDS)
+  // @CatchCronError(CronExpression.EVERY_10_SECONDS)
   async checkLocalTasksStatus() {
     this.logger.debug(`start check local tasks`);
 

@@ -18,7 +18,7 @@ export async function bootstrap() {
     .setTitle('My API')
     .setDescription('My API description')
     .setVersion('1.0')
-    .addBearerAuth()
+    .addApiKey({ type: 'apiKey', name: 'X-ADMIN-API-KEY', in: 'header' }, 'X-ADMIN-API-KEY')
     .build();
 
   // await SwaggerModule.loadPluginMetadata(metadata);

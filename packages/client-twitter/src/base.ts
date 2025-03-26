@@ -17,7 +17,7 @@ import {
 import { EventEmitter } from 'events';
 import type { TwitterConfig } from './environment.js';
 import { CustomScraper } from './scraper.js';
-import { Logger, GLOBAL_SETTINGS } from './settings/index.js';
+import { Logger, GLOBAL_SETTINGS, taskManagerCli } from './settings/index.js';
 import { TwitterClientState } from './monitor/state.js';
 import pino from 'pino';
 
@@ -328,6 +328,14 @@ export class ClientBase extends EventEmitter {
           }
         }
       } catch (error) {
+        // if the error eq 'Login attempt failed: Invalid URL', it should be `Account suspended`
+        if (error.message === 'Login attempt failed: Invalid URL') {
+          // upload the info to task-manager, so that do not retry again
+          await taskManagerCli.tasksControllerSuspendedTask(username);
+          // await taskManagerCli.tasksControllerTagTask(username);
+          throw new Error(`${username} Account suspended`);
+        }
+        // TODO upload the info to task-manager, so that do not retry again
         this.logger.error(`Login attempt failed: ${error.message}`);
       }
 

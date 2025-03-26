@@ -7,12 +7,11 @@ console.log(join(process.cwd(), '.env'));
 dotenv.config({ path: join(process.cwd(), '.env') });
 
 export const workerUuid = crypto.randomUUID();
-// 10min
-export const taskTimeout = 1000 * 60 * 10;
-// 10min
-export const lockTimeout = 1000 * 60 * 10;
-// 10min
-export const leaseTime = 1000 * 60 * 10;
+// how long the task do not update the updateAt consider as timeout
+export const taskTimeout = 1000 * 60 * 7;
+// how long the lock timeout to handle the action of client-twitter
+export const leaseTime = 1000 * 60 * 8;
+export const TASK_MANAGER_ADMIN_API_KEY = process.env.TASK_MANAGER_ADMIN_API_KEY;
 
 export const mongodbUri = process.env.TASK_MONGODB_URI;
 assert(mongodbUri, 'TASK_MONGODB_URI is required');

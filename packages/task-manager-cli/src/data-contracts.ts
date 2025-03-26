@@ -209,14 +209,14 @@ export interface UpdateTaskDto {
 
 export type TasksControllerCreateTaskData = TaskResponseDto;
 
+export type TasksControllerStopTaskData = TaskResponseDto;
+
+export type TasksControllerSuspendedTaskData = TaskResponseDto;
+
 export type TasksControllerUpdateTaskData = TaskResponseDto;
 
 export type TasksControllerGetTaskData = TaskResponseDto;
 
-export type TasksControllerStartTaskData = TaskResponseDto;
-
-export type TasksControllerStopTaskData = TaskResponseDto;
-
-export type TasksControllerRestartTaskData = TaskResponseDto;
-
 export type HealthControllerCheckHealthData = any;
+
+export type HealthControllerDebugData = any;

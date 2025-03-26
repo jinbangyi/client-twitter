@@ -1,5 +1,6 @@
 import { elizaLogger, UUID, type IAgentRuntime } from '@elizaos/core';
 import pino from 'pino';
+import { Tasks } from '@xnomad/task-manager-cli'
 
 import { TwitterClientState, TwitterClientStatus } from '../monitor/state';
 import { TwitterConfig } from '../environment';
@@ -123,3 +124,11 @@ export class GlobalSettings {
 }
 
 export const GLOBAL_SETTINGS = new GlobalSettings();
+
+const TASK_MANAGER_BASE_ENDPOINT = process.env.TASK_MANAGER_BASE_ENDPOINT;
+export const taskManagerCli = new Tasks({
+  baseURL: TASK_MANAGER_BASE_ENDPOINT!,
+  headers: {
+    'X-ADMIN-API-KEY': process.env.TASK_MANAGER_ADMIN_API_KEY!,
+  }
+});
