@@ -2,7 +2,7 @@ import { IsString, IsOptional, IsIn } from 'class-validator';
 import { TwitterConfig as ExternalTwitterConfig } from '@elizaos/client-twitter';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { TaskAction, TaskActionName } from '../schemas/task.schema.js';
+import { TaskAction, TaskActionName, TaskStatus, TaskStatusName } from '../schemas/task.schema.js';
 import { TwitterConfig } from './external.dto.js';
 
 export class CreateTaskDto {
@@ -38,4 +38,53 @@ export class CreateTaskDto {
 }
 
 export class UpdateTaskDto extends CreateTaskDto {
+}
+
+export class TaskResponseDto {
+  @ApiProperty({ required: false })
+  id?: string;
+
+  @ApiProperty({ required: true })
+  title: string;
+
+  @ApiProperty({
+    required: true,
+    enum: TaskActionName,
+    description: 'Available actions: restart, stop, start'
+  })
+  action: TaskAction;
+
+  @ApiProperty({ required: false })
+  description: string;
+
+  @ApiProperty({
+    enum: TaskStatusName,
+    default: TaskStatusName.STOPPED,
+    description: 'Task status: restarted, running, completed, stopped'
+  })
+  status: TaskStatus;
+
+  @ApiProperty({
+    required: true,
+    type: TwitterConfig,
+    description: 'Twitter configuration and additional settings'
+  })
+  configuration: TwitterConfig & Record<string, any>;
+
+  @ApiProperty({
+    type: Date,
+    default: 'Date.now()',
+    description: 'Task creation timestamp'
+  })
+  createdAt: Date;
+
+  @ApiProperty({ required: false })
+  createdBy: string;
+
+  @ApiProperty({
+    type: Date,
+    default: 'Date.now()',
+    description: 'Last update timestamp'
+  })
+  updatedAt: Date;
 }

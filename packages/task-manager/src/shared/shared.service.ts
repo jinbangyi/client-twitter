@@ -1,9 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { type IAgentRuntime } from '@elizaos/core';
+
 import { workerUuid } from '../constant.js';
 import { Task } from '../tasks/schemas/task.schema.js';
 
-@Injectable()
 export class SharedService {
   private readonly logger = new Logger(`${SharedService.name}_${workerUuid}`);
   // task.title -> task
@@ -26,3 +26,5 @@ export class SharedService {
     this.taskRuntime.set(taskTitle, runtime);
   }
 }
+
+export const SHARED_SERVICE = new SharedService();

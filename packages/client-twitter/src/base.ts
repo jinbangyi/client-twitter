@@ -17,7 +17,7 @@ import {
 import { EventEmitter } from 'events';
 import type { TwitterConfig } from './environment.js';
 import { CustomScraper } from './scraper.js';
-import { Logger, SETTINGS } from './settings/index.js';
+import { Logger, GLOBAL_SETTINGS } from './settings/index.js';
 import { TwitterClientState } from './monitor/state.js';
 import pino from 'pino';
 
@@ -271,10 +271,7 @@ export class ClientBase extends EventEmitter {
     const guestId = this.twitterConfig.TWITTER_COOKIES_GUEST_ID;
 
     this.logger.debug('Waiting for Twitter login cookie init');
-    SETTINGS.account[username] = {
-      ...SETTINGS.account[username],
-      state: TwitterClientState.TWITTER_LOGIN_COOKIE_INIT,
-    };
+    GLOBAL_SETTINGS.setClientTwitterState(this.runtime.agentId, TwitterClientState.TWITTER_LOGIN_COOKIE_INIT);
 
     const createTwitterCookies = (
       authToken: string,
@@ -304,10 +301,7 @@ export class ClientBase extends EventEmitter {
     let retries = this.twitterConfig.TWITTER_RETRY_LIMIT;
 
     this.logger.debug('Waiting for Twitter login');
-    SETTINGS.account[username] = {
-      ...SETTINGS.account[username],
-      state: TwitterClientState.TWITTER_LOGIN,
-    };
+    GLOBAL_SETTINGS.setClientTwitterState(this.runtime.agentId, TwitterClientState.TWITTER_LOGIN);
 
     while (retries > 0) {
       try {
@@ -355,10 +349,7 @@ export class ClientBase extends EventEmitter {
     const username = this.twitterConfig.TWITTER_USERNAME;
 
     this.logger.debug('Waiting for Twitter profile init');
-    SETTINGS.account[username] = {
-      ...SETTINGS.account[username],
-      state: TwitterClientState.TWITTER_PROFILE_INIT,
-    };
+    GLOBAL_SETTINGS.setClientTwitterState(this.runtime.agentId, TwitterClientState.TWITTER_PROFILE_INIT);
 
     this.profile = await this.fetchProfile(username);
 
@@ -472,10 +463,7 @@ export class ClientBase extends EventEmitter {
     const username = this.twitterConfig.TWITTER_USERNAME;
 
     this.logger.debug('populating timeline...');
-    SETTINGS.account[username] = {
-      ...SETTINGS.account[username],
-      state: TwitterClientState.TWITTER_POPULATE_TIMELINE,
-    };
+    GLOBAL_SETTINGS.setClientTwitterState(this.runtime.agentId, TwitterClientState.TWITTER_POPULATE_TIMELINE);
 
     const cachedTimeline = await this.runtimeHelper.getOrCreateCachedTimeline(
       this.profile,

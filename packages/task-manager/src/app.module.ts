@@ -8,11 +8,9 @@ import { ConfigModule } from '@nestjs/config';
 import { join } from 'path';
 import { mongodbCaFile, mongodbDbName, mongodbUri } from './constant.js';
 import { LoggerMiddleware } from './middleware/logger.middleware.js';
-import { SharedModule } from './shared/health.module.js';
 
 @Module({
   imports: [
-    SharedModule,
     TasksModule,
     WatcherModule,
     HealthModule,
@@ -36,6 +34,6 @@ import { SharedModule } from './shared/health.module.js';
 
 export class TaskManagerModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(LoggerMiddleware).forRoutes('*'); // 应用于所有路由
+    consumer.apply(LoggerMiddleware).forRoutes('*');
   }
 }

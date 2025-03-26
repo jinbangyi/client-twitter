@@ -40,8 +40,8 @@ export class TasksService {
     return this.update(id, { action: 'start' });
   }
 
-  async stopTask(id: string): Promise<Task | null> {
-    return this.update(id, { action: 'stop' });
+  async stopTask(title: string): Promise<Task | null> {
+    return this.updateByTitle(title, { action: 'stop' });
   }
 
   async restartTask(id: string): Promise<Task | null> {

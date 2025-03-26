@@ -1,9 +1,13 @@
 {
   "name": "@xnomad/task-manager",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "A task management application using NestJS and MongoDB.",
-  "main": "dist/main.js",
+  "main": "dist/index.js",
   "type": "module",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "start": "nest start",
     "start:prod": "node dist/main",
@@ -13,6 +17,7 @@
   },
   "dependencies": {
     "@elizaos/client-twitter": "workspace:*",
+    "@xnomad/task-manager-cli": "workspace:*",
     "@elizaos/core": "0.1.9",
     "@nestjs/common": "^10.4.15",
     "@nestjs/config": "3.3.0",
@@ -21,7 +26,6 @@
     "@nestjs/mongoose": "^10.1.0",
     "@nestjs/platform-express": "11.0.9",
     "@nestjs/schedule": "4.1.2",
-    "@nestjs/swagger": "^11.0.7",
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.7",
     "mongoose": "^8.12.1",
@@ -32,6 +36,7 @@
     "@nestjs/schematics": "^10.2.3",
     "@nestjs/testing": "10.4.15",
     "@types/supertest": "6.0.2",
+    "@nestjs/swagger": "^11.0.7",
     "supertest": "^6.3.4"
   },
   "keywords": [],

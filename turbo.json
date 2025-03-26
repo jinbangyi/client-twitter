@@ -13,9 +13,13 @@
       "outputs": ["dist/**"],
       "dependsOn": []
     },
+    "@xnomad/task-manager-cli#build": {
+      "outputs": ["dist/**"],
+      "dependsOn": []
+    },
     "@xnomad/task-manager#build": {
       "outputs": ["dist/**"],
-      "dependsOn": ["@elizaos/client-twitter#build"]
+      "dependsOn": ["@elizaos/client-twitter#build", "@xnomad/task-manager-cli#build"]
     }
   }
 }

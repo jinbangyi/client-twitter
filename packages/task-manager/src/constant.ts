@@ -22,3 +22,5 @@ export const mongodbDbName = process.env.MONGODB_DB_NAME || 'core';
 export const taskMongodbCollectionName = process.env.TASK_MONGODB_COLLECTION_NAME || 'ClientTwitterTask';
 export const lockMongodbCollectionName = process.env.LOCK_MONGODB_COLLECTION_NAME || 'ClientTwitterTaskLock';
 export const taskManagerHttpServicePort = process.env.TASK_MANAGER_HTTP_SERVICE_PORT || 3000;
+export const taskManagerBaseEndpoint = process.env.TASK_MANAGER_BASE_ENDPOINT;
+assert(taskManagerBaseEndpoint, 'TASK_MANAGER_BASE_ENDPOINT is required');

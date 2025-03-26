@@ -1,57 +1,124 @@
-import { elizaLogger, UUID } from '@elizaos/core';
+import { elizaLogger, UUID, type IAgentRuntime } from '@elizaos/core';
 import pino from 'pino';
+
 import { TwitterClientState, TwitterClientStatus } from '../monitor/state';
 import { TwitterConfig } from '../environment';
-
-interface Settings {
-  // agentId, twitter username
-  agent: Record<string, TwitterConfig>;
-  account: Record<
-    string,
-    {
-      state: TwitterClientState;
-      status: TwitterClientStatus;
-      // TODO, fix circular import.
-      // TwitterManager | null
-      manager: any;
-    }
-  >;
-}
-
-export function getCurrentTwitterAccountStatus(
-  username: string,
-): TwitterClientStatus {
-  if (!SETTINGS.account[username]) return TwitterClientStatus.STOPPED;
-
-  return SETTINGS.account[username].status;
-}
-
-export function getCurrentAgentTwitterAccountStatus(
-  agentId: UUID,
-): TwitterClientStatus {
-  if (!SETTINGS.agent[agentId.toString()]) return TwitterClientStatus.STOPPED;
-
-  const twitterConfig = SETTINGS.agent[agentId.toString()];
-  return getCurrentTwitterAccountStatus(twitterConfig.TWITTER_USERNAME);
-}
-
-export function isAgentTwitterAccountStopped(agentId: UUID): boolean {
-  return (
-    getCurrentAgentTwitterAccountStatus(agentId) === TwitterClientStatus.STOPPED
-  );
-}
-
-export function isAgentTwitterAccountStopping(agentId: UUID): boolean {
-  return (
-    getCurrentAgentTwitterAccountStatus(agentId) ===
-    TwitterClientStatus.STOPPING
-  );
-}
+import { type TwitterManager } from '..';
 
 export const Logger: pino.Logger<string, boolean> = elizaLogger.child({
   plugin: 'client-twitter',
+  name: 'client-twitter',
 });
-export const SETTINGS: Settings = {
-  account: {},
-  agent: {},
-};
+
+class ClientTwitterStatement {
+  // stop or start or other
+  status: TwitterClientStatus;
+
+  // client now running in which function
+  state: TwitterClientState;
+
+  config: TwitterConfig;
+
+  runtime: IAgentRuntime;
+
+  manager: TwitterManager;
+
+  constructor(
+    status: TwitterClientStatus,
+    state: TwitterClientState,
+    config: TwitterConfig,
+    runtime: IAgentRuntime,
+    manager: TwitterManager,
+  ) {
+    this.status = status;
+    this.state = state;
+    this.config = config;
+    this.runtime = runtime;
+    this.manager = manager;
+  }
+}
+
+export class GlobalSettings {
+  // agentId -> twitter config
+  private agent: Record<UUID, ClientTwitterStatement>;
+  // twitter username -> twitter config
+  private username: Record<string, UUID>;
+
+  constructor() { }
+
+  addClientTwitterStatement(
+    config: TwitterConfig,
+    runtime: IAgentRuntime,
+    manager: TwitterManager,
+  ) {
+    const statement = new ClientTwitterStatement(
+      TwitterClientStatus.RUNNING,
+      TwitterClientState.TWITTER_STARTUP,
+      config,
+      runtime,
+      manager,
+    );
+
+    this.agent[runtime.agentId] = statement;
+    this.username[config.TWITTER_USERNAME!] = runtime.agentId;
+
+    return statement;
+  }
+
+  setClientTwitterStatus(agentId: UUID, status: TwitterClientStatus) {
+    if (!this.agent[agentId]) {
+      throw new Error(`agentId ${agentId} not found`);
+    }
+    this.agent[agentId].status = status;
+  }
+
+  setClientTwitterState(agentId: UUID, state: TwitterClientState) {
+    if (!this.agent[agentId]) {
+      throw new Error(`agentId ${agentId} not found`);
+    }
+    this.agent[agentId].state = state;
+  }
+
+  removeClientTwitter(agentId: UUID) {
+    if (!this.agent[agentId]) {
+      throw new Error(`agentId ${agentId} not found`);
+    }
+    delete this.agent[agentId];
+  }
+
+  getAgentTwitterConfig(agentId: UUID): TwitterConfig {
+    if (!this.agent[agentId]) {
+      throw new Error(`agentId ${agentId} not found`);
+    }
+    return this.agent[agentId].config;
+  }
+
+  getAgentTwitterManager(agentId: UUID): TwitterManager {
+    if (!this.agent[agentId]) {
+      throw new Error(`agentId ${agentId} not found`);
+    }
+    return this.agent[agentId].manager;
+  }
+
+  getCurrentTwitterAccountStatus(username: string): TwitterClientStatus {
+    if (username in this.username) {
+      return this.getCurrentAgentTwitterAccountStatus(this.username[username]);
+    }
+    return TwitterClientStatus.STOPPED;
+  }
+
+  getCurrentAgentTwitterAccountStatus(agentId: UUID): TwitterClientStatus {
+    if (this.agent[agentId]) {
+      return this.agent[agentId].status;
+    }
+    return TwitterClientStatus.STOPPED;
+  }
+
+  isAgentTwitterAccountStopped(agentId: UUID): boolean {
+    return (
+      this.getCurrentAgentTwitterAccountStatus(agentId) === TwitterClientStatus.STOPPED
+    );
+  }
+}
+
+export const GLOBAL_SETTINGS = new GlobalSettings();

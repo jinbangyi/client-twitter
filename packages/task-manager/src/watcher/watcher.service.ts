@@ -9,7 +9,7 @@ import { taskTimeout, workerUuid } from '../constant.js';
 import { TaskEvent, TaskEventName } from '../tasks/interfaces/task.interface.js';
 import { Task, TaskActionName, TaskStatusName } from '../tasks/schemas/task.schema.js';
 import { MongodbLockService } from './lock.service.js';
-import { SharedService } from '../shared/shared.service.js';
+import { SHARED_SERVICE } from '../shared/shared.service.js';
 
 function areRecordsEqual<T>(recordA: Record<string, T>, recordB: Record<string, T>): boolean {
   const keysA = Object.keys(recordA);
@@ -50,11 +50,11 @@ export function CatchCronError(cronTime: string) {
 @Injectable()
 export class WatcherService {
   private readonly logger = new Logger(`${WatcherService.name}_${workerUuid}`);
+  private sharedService = SHARED_SERVICE;
 
   constructor(
     private readonly tasksService: TasksService,
     private readonly mongodbLockService: MongodbLockService,
-    private sharedService: SharedService,
     private eventEmitter: EventEmitter2
   ) { }
 
@@ -97,7 +97,7 @@ export class WatcherService {
   }
 
   // @CatchCronError(CronExpression.EVERY_MINUTE)
-  @CatchCronError(CronExpression.EVERY_SECOND)
+  @CatchCronError(CronExpression.EVERY_10_SECONDS)
   async getNewTasks() {
     this.logger.debug(`start get new tasks`);
 
