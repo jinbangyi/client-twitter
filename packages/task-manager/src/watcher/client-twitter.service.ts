@@ -18,8 +18,18 @@ export class ClientTwitterService {
     private eventEmitter: EventEmitter2
   ) { }
 
-  @OnEvent([TaskEventName.TASK_CREATED, TaskEventName.TASK_START])
+  @OnEvent(TaskEventName.TASK_CREATED)
   async onTaskCreated(payload: TaskEvent) {
+    return this.taskStart(payload);
+  }
+
+  @OnEvent(TaskEventName.TASK_START)
+  async onTaskStart(payload: TaskEvent) {
+    return this.taskStart(payload);
+  }
+
+  // can not combine multi event
+  private async taskStart(payload: TaskEvent) {
     this.logger.debug(`start task ${payload.task.title}`);
 
     try {
@@ -43,8 +53,17 @@ export class ClientTwitterService {
     }
   }
 
-  @OnEvent([TaskEventName.TASK_RESTART, TaskEventName.TASK_UPDATED])
-  async onTaskRestarted(payload: TaskEvent) {
+  @OnEvent(TaskEventName.TASK_RESTART)
+  async onTaskRestart(payload: TaskEvent) {
+    return this.taskRestart(payload);
+  }
+
+  @OnEvent(TaskEventName.TASK_UPDATED)
+  async onTaskUpdate(payload: TaskEvent) {
+    return this.taskRestart(payload);
+  }
+
+  private async taskRestart(payload: TaskEvent) {
     this.logger.debug(`restart task ${payload.task.title}`);
 
     try {

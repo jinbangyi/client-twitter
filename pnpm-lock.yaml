@@ -45,9 +45,6 @@ importers:
       prettier:
         specifier: 3.5.1
         version: 3.5.1
-      swagger-typescript-api:
-        specifier: ^13.0.23
-        version: 13.0.27
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@swc/core@1.11.13)(@types/node@22.13.4)(typescript@5.7.3)
@@ -148,6 +145,9 @@ importers:
 
   packages/task-manager:
     dependencies:
+      '@elizaos/adapter-mongodb':
+        specifier: 0.1.9
+        version: 0.1.9(@aws-sdk/credential-providers@3.768.0)(@google-cloud/vertexai@1.9.3)(@langchain/core@0.3.40(openai@4.85.1(ws@8.18.0)(zod@3.24.1)))(axios@1.7.9)(react@19.0.0)(socks@2.8.4)(sswr@2.1.0(svelte@5.20.1))(svelte@5.20.1)(vue@3.5.13(typescript@5.7.2))(ws@8.18.0)
       '@elizaos/client-twitter':
         specifier: workspace:*
         version: link:../client-twitter
@@ -184,6 +184,9 @@ importers:
       dotenv:
         specifier: ^16.4.7
         version: 16.4.7
+      mongodb:
+        specifier: ^6.12.0
+        version: 6.14.2(@aws-sdk/credential-providers@3.768.0)(socks@2.8.4)
       mongoose:
         specifier: ^8.12.1
         version: 8.12.1(@aws-sdk/credential-providers@3.768.0)(socks@2.8.4)
@@ -216,6 +219,9 @@ importers:
         specifier: ^1.7.9
         version: 1.7.9
     devDependencies:
+      swagger-typescript-api:
+        specifier: ^13.0.23
+        version: 13.0.27
       tsup:
         specifier: 8.3.5
         version: 8.3.5(@swc/core@1.11.13)(postcss@8.5.2)(typescript@5.7.3)(yaml@2.7.0)
@@ -801,6 +807,10 @@ packages:
   '@discordjs/ws@1.1.1':
     resolution: {integrity: sha512-PZ+vLpxGCRtmr2RMkqh8Zp+BenUaJqlS6xhgWKEZcgC/vfHLEzpHtKkB0sl3nZWpwtcKk6YWy+pU3okL2I97FA==}
     engines: {node: '>=16.11.0'}
+
+  '@elizaos/adapter-mongodb@0.1.9':
+    resolution: {integrity: sha512-NzbxemFqcrbp10Kfb8Eeq801dj0aElFg/6MTnaqrHYcw1tvSG3SX1B6zxltz3hnFQ9A0nMOG/Z2rqH3BSiq9rQ==}
+    engines: {node: '>=16.0.0'}
 
   '@elizaos/core@0.1.9':
     resolution: {integrity: sha512-rsAAyiPfc0HWWNVrROdQfR0BonVCgb1D1EHi7gLCrag8ZZqGd3UI/xjSiAUmU73e0dPcEo/JQzteAoehZ/ouXQ==}
@@ -7265,6 +7275,44 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+
+  '@elizaos/adapter-mongodb@0.1.9(@aws-sdk/credential-providers@3.768.0)(@google-cloud/vertexai@1.9.3)(@langchain/core@0.3.40(openai@4.85.1(ws@8.18.0)(zod@3.24.1)))(axios@1.7.9)(react@19.0.0)(socks@2.8.4)(sswr@2.1.0(svelte@5.20.1))(svelte@5.20.1)(vue@3.5.13(typescript@5.7.2))(ws@8.18.0)':
+    dependencies:
+      '@elizaos/core': 0.1.9(@google-cloud/vertexai@1.9.3)(@langchain/core@0.3.40(openai@4.85.1(ws@8.18.0)(zod@3.24.1)))(axios@1.7.9)(react@19.0.0)(sswr@2.1.0(svelte@5.20.1))(svelte@5.20.1)(vue@3.5.13(typescript@5.7.2))(ws@8.18.0)
+      mongodb: 6.14.2(@aws-sdk/credential-providers@3.768.0)(socks@2.8.4)
+      uuid: 9.0.1
+    transitivePeerDependencies:
+      - '@aws-sdk/credential-providers'
+      - '@google-cloud/vertexai'
+      - '@langchain/anthropic'
+      - '@langchain/aws'
+      - '@langchain/cohere'
+      - '@langchain/core'
+      - '@langchain/google-genai'
+      - '@langchain/google-vertexai'
+      - '@langchain/groq'
+      - '@langchain/mistralai'
+      - '@langchain/ollama'
+      - '@mongodb-js/zstd'
+      - aws-crt
+      - axios
+      - cheerio
+      - debug
+      - encoding
+      - gcp-metadata
+      - kerberos
+      - mongodb-client-encryption
+      - peggy
+      - react
+      - snappy
+      - socks
+      - solid-js
+      - sswr
+      - supports-color
+      - svelte
+      - typeorm
+      - vue
+      - ws
 
   '@elizaos/core@0.1.9(@google-cloud/vertexai@1.9.3)(@langchain/core@0.3.40(openai@4.73.0(zod@3.24.1)))(axios@1.7.9)(react@19.0.0)(sswr@2.1.0(svelte@5.20.1))(svelte@5.20.1)(vue@3.5.13(typescript@5.7.3))(ws@8.18.0)':
     dependencies:

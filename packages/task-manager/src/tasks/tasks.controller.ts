@@ -16,7 +16,7 @@ function mergeDtoAndTask(task: Task, dto: CreateTaskDto | UpdateTaskDto): Task {
   };
 }
 
-@Controller('tasks')
+@Controller('client-twitter/tasks')
 export class TasksController {
   private readonly logger = new Logger(`${TasksController.name}_${workerUuid}`);
   private sharedService = SHARED_SERVICE;
@@ -24,8 +24,7 @@ export class TasksController {
   constructor(
     private readonly tasksService: TasksService,
     private eventEmitter: EventEmitter2,
-  ) {
-  }
+  ) {}
 
   @Post()
   @ApiCreatedResponse({
@@ -54,7 +53,7 @@ export class TasksController {
       // if task already exists, update it
       this.logger.warn(`task ${task.title} already exists, update it`);
       const ret = await this.updateTask(dbTask.id, mergeDtoAndTask(dbTask, createTaskDto));
-      this.eventEmitter.emit(
+      const ok = this.eventEmitter.emit(
         TaskEventName.TASK_UPDATED,
         new TaskEvent({
           task: ret,
@@ -62,6 +61,7 @@ export class TasksController {
           message: `Task ${ret.id} created`,
         }),
       );
+      this.logger.debug(`emit event ${TaskEventName.TASK_UPDATED} ${ok}`);
       return ret;
     }
 

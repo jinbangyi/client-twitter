@@ -7,14 +7,17 @@ import { TasksService } from '../tasks/tasks.service.js';
 import { Task, TaskSchema } from '../tasks/schemas/task.schema.js';
 import { MongodbLock, MongodbLockSchema } from './schemas/lock.schema.js';
 import { MongodbLockService } from './lock.service.js';
+// import { SharedModule } from '../shared/shared.module.js';
+import { ClientTwitterService } from './client-twitter.service.js';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
     MongooseModule.forFeature([{ name: Task.name, schema: TaskSchema }]),
     MongooseModule.forFeature([{ name: MongodbLock.name, schema: MongodbLockSchema }]),
+    // SharedModule
   ],
-  providers: [WatcherService, TasksService, MongodbLockService],
-  exports: [WatcherService],
+  providers: [WatcherService, TasksService, MongodbLockService, ClientTwitterService],
+  exports: [WatcherService, ClientTwitterService],
 })
 export class WatcherModule { }

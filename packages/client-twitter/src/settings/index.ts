@@ -40,9 +40,9 @@ class ClientTwitterStatement {
 
 export class GlobalSettings {
   // agentId -> twitter config
-  private agent: Record<UUID, ClientTwitterStatement>;
+  private agent: Record<UUID, ClientTwitterStatement> = {};
   // twitter username -> twitter config
-  private username: Record<string, UUID>;
+  private username: Record<string, UUID> = {};
 
   constructor() { }
 
@@ -61,41 +61,42 @@ export class GlobalSettings {
 
     this.agent[runtime.agentId] = statement;
     this.username[config.TWITTER_USERNAME!] = runtime.agentId;
+    console.log(`addClientTwitterStatement ${config.TWITTER_USERNAME!} ${runtime.agentId}`);
 
     return statement;
   }
 
   setClientTwitterStatus(agentId: UUID, status: TwitterClientStatus) {
     if (!this.agent[agentId]) {
-      throw new Error(`agentId ${agentId} not found`);
+      throw new Error(`setClientTwitterStatus agentId ${agentId} not found`);
     }
     this.agent[agentId].status = status;
   }
 
   setClientTwitterState(agentId: UUID, state: TwitterClientState) {
     if (!this.agent[agentId]) {
-      throw new Error(`agentId ${agentId} not found`);
+      throw new Error(`setClientTwitterState agentId ${agentId} not found`);
     }
     this.agent[agentId].state = state;
   }
 
   removeClientTwitter(agentId: UUID) {
     if (!this.agent[agentId]) {
-      throw new Error(`agentId ${agentId} not found`);
+      throw new Error(`removeClientTwitter agentId ${agentId} not found`);
     }
     delete this.agent[agentId];
   }
 
   getAgentTwitterConfig(agentId: UUID): TwitterConfig {
     if (!this.agent[agentId]) {
-      throw new Error(`agentId ${agentId} not found`);
+      throw new Error(`getAgentTwitterConfig agentId ${agentId} not found`);
     }
     return this.agent[agentId].config;
   }
 
   getAgentTwitterManager(agentId: UUID): TwitterManager {
     if (!this.agent[agentId]) {
-      throw new Error(`agentId ${agentId} not found`);
+      throw new Error(`getAgentTwitterManager agentId ${agentId} not found`);
     }
     return this.agent[agentId].manager;
   }

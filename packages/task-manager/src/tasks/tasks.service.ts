@@ -7,7 +7,9 @@ import { taskTimeout } from '../constant.js';
 
 @Injectable()
 export class TasksService {
-  constructor(@InjectModel(Task.name) private readonly taskModel: Model<Task>) { }
+  constructor(
+    @InjectModel(Task.name) private readonly taskModel: Model<Task>
+  ) { }
 
   async create(createTask: Task): Promise<Task> {
     const createdTask = new this.taskModel(createTask);

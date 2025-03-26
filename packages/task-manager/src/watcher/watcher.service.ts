@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { type IAgentRuntime } from '@elizaos/core';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { TwitterClient, TwitterClientStatus } from '@elizaos/client-twitter';
 
 import { TasksService } from '../tasks/tasks.service.js';
@@ -56,7 +56,7 @@ export class WatcherService {
     private readonly tasksService: TasksService,
     private readonly mongodbLockService: MongodbLockService,
     private eventEmitter: EventEmitter2
-  ) { }
+  ) {}
 
   get tasks(): Map<string, Task> {
     return this.sharedService.tasks;
@@ -122,7 +122,10 @@ export class WatcherService {
             continue;
           }
 
-          if (latestTask.updatedAt.getTime() + taskTimeout < Date.now()) {
+          if (
+            latestTask.status === TaskStatusName.STOPPED || 
+            latestTask.updatedAt.getTime() + taskTimeout < Date.now()
+          ) {
             // update the task status
             await this.tasksService.updateByTitle(task.title, { status: TaskStatusName.STOPPED });
             // start the task
@@ -137,7 +140,7 @@ export class WatcherService {
             // set tasks
             this.tasks.set(task.title, task);
           } else {
-            this.logger.warn(`task ${task.title} is not timeout`);
+            this.logger.warn(`task ${task.title} is processed by other worker`);
           }
         } finally {
           await this.mongodbLockService.releaseLock(task.title);
@@ -235,10 +238,37 @@ export class WatcherService {
 
       if (localTask.task.action === TaskActionName.START && localTask.task.status !== TaskStatusName.RUNNING) {
         // start the task
+        const ret = this.eventEmitter.emit(
+          TaskEventName.TASK_START,
+          new TaskEvent({
+            task: localTask.task,
+            runtime: localTask.runtime,
+            message: `Task ${localTask.task.id} started`,
+          }),
+        );
+        this.logger.debug(`task ${localTask.task.title} started, ${ret}`);
       } else if (localTask.task.action === TaskActionName.STOP && localTask.task.status !== TaskStatusName.STOPPED) {
         // stop the task
+        this.eventEmitter.emit(
+          TaskEventName.TASK_STOP,
+          new TaskEvent({
+            task: localTask.task,
+            runtime: localTask.runtime,
+            message: `Task ${localTask.task.id} stopped`,
+          }),
+        );
+        this.logger.debug(`task ${localTask.task.title} stopped`);
       } else if (localTask.task.action === TaskActionName.RESTART && localTask.task.status !== TaskStatusName.RESTARTED) {
         // restar the task
+        this.eventEmitter.emit(
+          TaskEventName.TASK_RESTART,
+          new TaskEvent({
+            task: localTask.task,
+            runtime: localTask.runtime,
+            message: `Task ${localTask.task.id} restarted`,
+          }),
+        );
+        this.logger.debug(`task ${localTask.task.title} restarted`);
       } else {
         this.logger.debug(`task ${localTask.task.title} status is expected`);
       }

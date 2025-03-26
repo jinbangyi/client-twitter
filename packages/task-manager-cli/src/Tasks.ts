@@ -28,12 +28,12 @@ export class Tasks<SecurityDataType = unknown> extends HttpClient<SecurityDataTy
    *
    * @tags Tasks
    * @name TasksControllerCreateTask
-   * @request POST:/tasks
+   * @request POST:/client-twitter/tasks
    * @response `201` `TasksControllerCreateTaskData`
    */
   tasksControllerCreateTask = (data: CreateTaskDto, params: RequestParams = {}) =>
     this.request<TasksControllerCreateTaskData, any>({
-      path: `/tasks`,
+      path: `/client-twitter/tasks`,
       method: 'POST',
       body: data,
       type: ContentType.Json,
@@ -45,12 +45,12 @@ export class Tasks<SecurityDataType = unknown> extends HttpClient<SecurityDataTy
    *
    * @tags Tasks
    * @name TasksControllerUpdateTask
-   * @request PUT:/tasks/{id}
+   * @request PUT:/client-twitter/tasks/{id}
    * @response `201` `TasksControllerUpdateTaskData`
    */
   tasksControllerUpdateTask = (id: string, data: UpdateTaskDto, params: RequestParams = {}) =>
     this.request<TasksControllerUpdateTaskData, any>({
-      path: `/tasks/${id}`,
+      path: `/client-twitter/tasks/${id}`,
       method: 'PUT',
       body: data,
       type: ContentType.Json,
@@ -62,12 +62,12 @@ export class Tasks<SecurityDataType = unknown> extends HttpClient<SecurityDataTy
    *
    * @tags Tasks
    * @name TasksControllerGetTask
-   * @request GET:/tasks/{id}/status
+   * @request GET:/client-twitter/tasks/{id}/status
    * @response `201` `TasksControllerGetTaskData`
    */
   tasksControllerGetTask = (id: string, params: RequestParams = {}) =>
     this.request<TasksControllerGetTaskData, any>({
-      path: `/tasks/${id}/status`,
+      path: `/client-twitter/tasks/${id}/status`,
       method: 'GET',
       format: 'json',
       ...params,
@@ -77,12 +77,12 @@ export class Tasks<SecurityDataType = unknown> extends HttpClient<SecurityDataTy
    *
    * @tags Tasks
    * @name TasksControllerStartTask
-   * @request POST:/tasks/{id}/start
+   * @request POST:/client-twitter/tasks/{id}/start
    * @response `201` `TasksControllerStartTaskData`
    */
   tasksControllerStartTask = (id: string, params: RequestParams = {}) =>
     this.request<TasksControllerStartTaskData, any>({
-      path: `/tasks/${id}/start`,
+      path: `/client-twitter/tasks/${id}/start`,
       method: 'POST',
       format: 'json',
       ...params,
@@ -92,12 +92,12 @@ export class Tasks<SecurityDataType = unknown> extends HttpClient<SecurityDataTy
    *
    * @tags Tasks
    * @name TasksControllerStopTask
-   * @request POST:/tasks/{id}/stop
+   * @request POST:/client-twitter/tasks/{title}/stop
    * @response `201` `TasksControllerStopTaskData`
    */
-  tasksControllerStopTask = (id: string, params: RequestParams = {}) =>
+  tasksControllerStopTask = (title: string, params: RequestParams = {}) =>
     this.request<TasksControllerStopTaskData, any>({
-      path: `/tasks/${id}/stop`,
+      path: `/client-twitter/tasks/${title}/stop`,
       method: 'POST',
       format: 'json',
       ...params,
@@ -107,12 +107,12 @@ export class Tasks<SecurityDataType = unknown> extends HttpClient<SecurityDataTy
    *
    * @tags Tasks
    * @name TasksControllerRestartTask
-   * @request POST:/tasks/{id}/restart
+   * @request POST:/client-twitter/tasks/{id}/restart
    * @response `201` `TasksControllerRestartTaskData`
    */
   tasksControllerRestartTask = (id: string, params: RequestParams = {}) =>
     this.request<TasksControllerRestartTaskData, any>({
-      path: `/tasks/${id}/restart`,
+      path: `/client-twitter/tasks/${id}/restart`,
       method: 'POST',
       format: 'json',
       ...params,

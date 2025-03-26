@@ -132,12 +132,17 @@ function hidePassword(url: string) {
 export class TwitterClientClass implements Client {
   private runtime: IAgentRuntime;
 
+  private getProxy(TWITTER_HTTP_PROXY?: string): string {
+    const proxy = hidePassword(TWITTER_HTTP_PROXY ?? 'NONE');
+    return proxy;
+  }
+
   async start(runtime: IAgentRuntime) {
     this.runtime = runtime;
     const twitterConfig: TwitterConfig = await validateTwitterConfig(runtime);
 
     // get proxy from config
-    const proxy = hidePassword(twitterConfig.TWITTER_HTTP_PROXY ?? '');
+    const proxy = this.getProxy(twitterConfig.TWITTER_HTTP_PROXY);
     Logger.debug(
       `Twitter client started username=${twitterConfig.TWITTER_USERNAME}`,
     );
@@ -158,12 +163,13 @@ export class TwitterClientClass implements Client {
       }
 
       const manager = new TwitterManager(runtime, twitterConfig);
-      await manager.start();
-
       GLOBAL_SETTINGS.addClientTwitterStatement(twitterConfig, runtime, manager);
+
+      await manager.start();
       return this;
     } catch (error) {
-      twitterAccountStatus.labels(twitterConfig.TWITTER_USERNAME).set(0);
+      twitterAccountStatus.labels(twitterConfig.TWITTER_USERNAME, proxy).set(0);
+      GLOBAL_SETTINGS.setClientTwitterStatus(runtime.agentId, TwitterClientStatus.STOPPED);
       throw error;
     }
   }
@@ -177,7 +183,7 @@ export class TwitterClientClass implements Client {
     ) {
       const twitterConfig = GLOBAL_SETTINGS.getAgentTwitterConfig(runtime.agentId);
       const username = twitterConfig.TWITTER_USERNAME;
-      const proxy = hidePassword(twitterConfig.TWITTER_HTTP_PROXY ?? '');
+      const proxy = this.getProxy(twitterConfig.TWITTER_HTTP_PROXY);
 
       twitterAccountStatus.labels(username, proxy).set(2);
 

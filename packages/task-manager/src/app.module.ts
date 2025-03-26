@@ -1,11 +1,12 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { EventEmitterModule } from '@nestjs/event-emitter';
-import { TasksModule } from './tasks/tasks.module.js';
-import { WatcherModule } from './watcher/watcher.module.js';
-import { HealthModule } from './health/health.module.js';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { join } from 'path';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+
+import { TasksModule } from './tasks/tasks.module.js';
+import { WatcherModule } from './watcher/watcher.module.js';
+import { HealthModule } from './health/health.module.js';
 import { mongodbCaFile, mongodbDbName, mongodbUri } from './constant.js';
 import { LoggerMiddleware } from './middleware/logger.middleware.js';
 
@@ -31,7 +32,6 @@ import { LoggerMiddleware } from './middleware/logger.middleware.js';
     ),
   ],
 })
-
 export class TaskManagerModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(LoggerMiddleware).forRoutes('*');
