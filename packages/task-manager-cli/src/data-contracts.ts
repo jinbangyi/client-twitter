@@ -186,6 +186,13 @@ export interface TaskResponseDto {
    * @default "Date.now()"
    */
   updatedAt: string;
+  /**
+   * Pause until this date
+   * @format date-time
+   */
+  pauseUntil?: string;
+  /** Task tags */
+  tags?: 'suspended'[];
 }
 
 export interface UpdateTaskDto {
@@ -207,6 +214,15 @@ export interface UpdateTaskDto {
   configuration?: TwitterConfig;
 }
 
+export interface UpdateTaskSettingsDto {
+  entryPoint: string;
+  ip: string;
+  port: number;
+  countryCode: string;
+  username: string;
+  password: string;
+}
+
 export type TasksControllerCreateTaskData = TaskResponseDto;
 
 export type TasksControllerStopTaskData = TaskResponseDto;
@@ -216,6 +232,8 @@ export type TasksControllerSuspendedTaskData = TaskResponseDto;
 export type TasksControllerUpdateTaskData = TaskResponseDto;
 
 export type TasksControllerGetTaskData = TaskResponseDto;
+
+export type TaskSettingsControllerUpdateManagerSettingsData = any;
 
 export type HealthControllerCheckHealthData = any;
 

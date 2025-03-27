@@ -1,31 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { type IAgentRuntime } from '@elizaos/core';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TwitterClient, TwitterClientStatus } from '@elizaos/client-twitter';
+import _ from 'lodash';
 
 import { TasksService } from '../tasks/tasks.service.js';
 import { taskTimeout, workerUuid } from '../constant.js';
 import { TaskEvent, TaskEventName } from '../tasks/interfaces/task.interface.js';
 import { Task, TaskActionName, TaskStatusName } from '../tasks/schemas/task.schema.js';
-import { MongodbLockService } from './lock.service.js';
 import { SHARED_SERVICE } from '../shared/shared.service.js';
 
-function areRecordsEqual<T>(recordA: Record<string, T>, recordB: Record<string, T>): boolean {
-  const keysA = Object.keys(recordA);
-  const keysB = Object.keys(recordB);
+async function randomDelay() {
+  // 10s
+  const randomDelay = Math.floor(Math.random() * 1000 * 10);
 
-  if (keysA.length !== keysB.length) {
-    return false;
-  }
-
-  for (const key of keysA) {
-    if (recordB[key] !== recordA[key]) {
-      return false;
-    }
-  }
-
-  return true;
+  return new Promise<void>((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, randomDelay);
+  });
 }
 
 export function CatchCronError(cronTime: string) {
@@ -36,6 +30,8 @@ export function CatchCronError(cronTime: string) {
 
     descriptor.value = async function (...args: any[]) {
       try {
+        // add random delay to avoid all cron job run at the same time
+        await randomDelay();
         await originalMethod.apply(this, args);
       } catch (error) {
         logger.error(`Error in cron job "${propertyName}": ${error}`);
@@ -54,7 +50,6 @@ export class WatcherService {
 
   constructor(
     private readonly tasksService: TasksService,
-    private readonly mongodbLockService: MongodbLockService,
     private eventEmitter: EventEmitter2
   ) {}
 
@@ -113,7 +108,7 @@ export class WatcherService {
   @CatchCronError(CronExpression.EVERY_MINUTE)
   // @CatchCronError(CronExpression.EVERY_10_SECONDS)
   async getNewTasks() {
-    this.logger.debug(`start get new tasks`);
+    this.logger.debug(`start getNewTasks`);
 
     const tasks = await this.tasksService.getNewTasks();
     for (const task of tasks) {
@@ -127,49 +122,35 @@ export class WatcherService {
         continue;
       }
 
-      if (await this.mongodbLockService.acquireLock(task.title)) {
-        try {
-          // check if the task is timeout
-          const latestTask = await this.tasksService.getTaskByTitle(task.title);
-          if (!latestTask) {
-            this.logger.error(`task ${task.title} not found`);
-            continue;
-          }
-
-          if (
-            latestTask.status === TaskStatusName.STOPPED || 
-            latestTask.updatedAt.getTime() + taskTimeout < Date.now()
-          ) {
-            // update the task status
-            await this.tasksService.updateByTitle(task.title, { status: TaskStatusName.STOPPED });
-            // start the task
-            this.eventEmitter.emit(
-              TaskEventName.TASK_CREATED,
-              new TaskEvent({
-                task,
-                runtime: this.taskRuntime.get(task.title)!,
-                message: `Task ${task.id} created`,
-              }),
-            );
-            // set tasks
-            this.tasks.set(task.title, task);
-          } else {
-            this.logger.warn(`task ${task.title} is processed by other worker`);
-          }
-        } finally {
-          await this.mongodbLockService.releaseLock(task.title);
-        }
+      if (
+        task.status === TaskStatusName.STOPPED || 
+        task.updatedAt.getTime() + taskTimeout < Date.now()
+      ) {
+        // start the task
+        this.eventEmitter.emit(
+          TaskEventName.TASK_CREATED,
+          new TaskEvent({
+            task,
+            runtime: this.taskRuntime.get(task.title)!,
+            message: `Task ${task.id} created`,
+          }),
+        );
+        // set tasks
+        this.tasks.set(task.title, task);
+      } else {
+        this.logger.warn(`task ${task.title} is processed by other worker`);
       }
     }
 
-    this.logger.debug(`end get new tasks ${tasks.length}`);
+    this.logger.debug(`end getNewTasks ${tasks.length}`);
   }
 
   // TODO add action when a twitter client is tagged suspended
   @CatchCronError(CronExpression.EVERY_MINUTE)
   // @CatchCronError(CronExpression.EVERY_10_SECONDS)
   async checkTaskActionOrConfigurationChanged() {
-    this.logger.debug(`start check task action change`);
+    const prefix = 'checkTaskActionOrConfigurationChanged';
+    this.logger.debug(`${prefix} start`);
 
     const tasks = await this.tasksService.getTaskByTitles(Array.from(this.tasks.keys()));
     for (const task of tasks) {
@@ -184,9 +165,11 @@ export class WatcherService {
         // the local task do not maintain stopped task, so ignore the task.action=start
 
         if (task.action === TaskActionName.STOP) {
+          this.logger.debug(`${prefix} stop task`);
           this.stopTask(task, localTask.runtime);
         } else if (task.action === TaskActionName.RESTART) {
           // restart the task
+          this.logger.debug(`${prefix} restart task`);
           this.eventEmitter.emit(
             TaskEventName.TASK_RESTART,
             new TaskEvent({
@@ -201,9 +184,10 @@ export class WatcherService {
         }
       } else if (
         // configuration changed
-        !areRecordsEqual(task.configuration, this.tasks.get(task.title)!.configuration)
+        !_.isEqual(task.configuration, this.tasks.get(task.title)!.configuration)
       ) {
         // restart the task
+        this.logger.debug(`${prefix} configuration changed.`);
         this.eventEmitter.emit(
           TaskEventName.TASK_RESTART,
           new TaskEvent({
@@ -215,7 +199,7 @@ export class WatcherService {
         this.tasks.set(task.title, task);
       } else {
         if (task.pauseUntil && task.pauseUntil > new Date()) {
-          this.logger.debug(`task ${task.title} is paused`);
+          this.logger.debug(`${prefix} task ${task.title} is paused`);
           this.stopTask(task, localTask.runtime);
         } else {
           // update task update time
@@ -224,13 +208,13 @@ export class WatcherService {
       }
     }
 
-    this.logger.debug(`end check task action change ${this.tasks.size}`);
+    this.logger.debug(`${prefix} end, ${this.tasks.size}`);
   }
 
   @CatchCronError(CronExpression.EVERY_30_SECONDS)
   // @CatchCronError(CronExpression.EVERY_10_SECONDS)
   async checkLocalTasksStatus() {
-    this.logger.debug(`start check local tasks`);
+    this.logger.debug(`start checkLocalTasksStatus`);
 
     for (const task of this.tasks) {
       const localTask = this.updateLocalTask(task[0]);
@@ -277,6 +261,6 @@ export class WatcherService {
       }
     }
 
-    this.logger.debug(`end check local tasks ${this.tasks.size}`);
+    this.logger.debug(`end checkLocalTasksStatus ${this.tasks.size}`);
   }
 }

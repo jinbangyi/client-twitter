@@ -30,26 +30,36 @@ export class ClientTwitterService {
 
   // can not combine multi event
   private async taskStart(payload: TaskEvent) {
-    this.logger.debug(`start task ${payload.task.title}`);
+    const prefix = 'taskStart';
+    this.logger.debug(`${prefix} ${payload.task.title}`);
 
     try {
       if (await this.mongodbLockService.acquireLock(payload.task.title)) {
         try {
+          // check if the task is already running
+          const latestTask = await this.tasksService.getTaskByTitle(payload.task.title);
+          if (!latestTask) {
+            this.logger.error(`${prefix} ${payload.task.title} error: task not found in db`);
+            return;
+          }
+
+          if (latestTask.status === TaskStatusName.RUNNING) {
+            this.logger.warn(`${prefix} ${payload.task.title} error: task is already running`);
+            return;
+          }
+
           await TwitterClient.start(payload.runtime);
-          const task = await this.tasksService.updateByTitle(
+          await this.tasksService.updateByTitle(
             payload.task.title, { createdBy: workerUuid, status: TaskStatusName.RUNNING }
           );
-          if (!task) {
-            this.logger.error(`restart task ${payload.task.title} error: task not found in db`);
-          }
         } finally {
           await this.mongodbLockService.releaseLock(payload.task.title);
         }
       } else {
-        this.logger.warn(`start task ${payload.task.title} error: lock not acquired`);
+        this.logger.warn(`${prefix} ${payload.task.title} error: lock not acquired`);
       }
     } catch (error: any) {
-      this.logger.error(`restart task ${payload.task.title} error: ${error.message}`);
+      this.logger.error(`${prefix} ${payload.task.title} error: ${error.message}`);
     }
   }
 
@@ -64,33 +74,22 @@ export class ClientTwitterService {
   }
 
   private async taskRestart(payload: TaskEvent) {
-    this.logger.debug(`restart task ${payload.task.title}`);
+    const prefix = 'taskRestart';
+    this.logger.debug(`${prefix} ${payload.task.title}`);
 
     try {
-      if (await this.mongodbLockService.acquireLock(payload.task.title)) {
-        try {
-          await TwitterClient.stop(payload.runtime);
-          await TwitterClient.start(payload.runtime);
-          const task = await this.tasksService.updateByTitle(
-            payload.task.title, { createdBy: workerUuid, status: TaskStatusName.RESTARTED }
-          );
-          if (!task) {
-            this.logger.error(`restart task ${payload.task.title} error: task not found in db`);
-          }
-        } finally {
-          await this.mongodbLockService.releaseLock(payload.task.title);
-        }
-      } else {
-        this.logger.warn(`restart task ${payload.task.title} error: lock not acquired`);
-      }
+      // do not update the db status, so do not invoke this.onTaskStop
+      await TwitterClient.stop(payload.runtime);
+      await this.taskStart(payload);
     } catch (error: any) {
-      this.logger.error(`restart task ${payload.task.title} error: ${error.message}`);
+      this.logger.error(`${prefix} ${payload.task.title} error: ${error.message}`);
     }
   }
 
   @OnEvent(TaskEventName.TASK_STOP)
   async onTaskStop(payload: TaskEvent) {
-    this.logger.debug(`stop task ${payload.task.title}`);
+    const prefix = 'onTaskStop';
+    this.logger.debug(`${prefix} ${payload.task.title}`);
 
     try {
       if (await this.mongodbLockService.acquireLock(payload.task.title)) {
@@ -100,16 +99,16 @@ export class ClientTwitterService {
             payload.task.title, { createdBy: workerUuid, status: TaskStatusName.STOPPED }
           );
           if (!task) {
-            this.logger.error(`stop task ${payload.task.title} error: task not found in db`);
+            this.logger.error(`${prefix} ${payload.task.title} error: task not found in db`);
           }
         } finally {
           await this.mongodbLockService.releaseLock(payload.task.title);
         }
       } else {
-        this.logger.warn(`stop task ${payload.task.title} error: lock not acquired`);
+        this.logger.warn(`${prefix} ${payload.task.title} error: lock not acquired`);
       }
     } catch (error: any) {
-      this.logger.error(`stop task ${payload.task.title} error: ${error.message}`);
+      this.logger.error(`${prefix} ${payload.task.title} error: ${error.message}`);
     }
   }
 }

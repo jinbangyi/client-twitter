@@ -9,6 +9,7 @@ import { workerUuid } from '../constant.js';
 import { TaskEvent, TaskEventName } from './interfaces/task.interface.js';
 import { SHARED_SERVICE } from '../shared/shared.service.js';
 import { AdminApiKeyGuard } from './tasks.guard.js';
+import { TaskSettingsService } from './task-settings.service.js';
 
 function mergeDtoAndTask(task: Task, dto: CreateTaskDto | UpdateTaskDto): Task {
   return {
@@ -30,8 +31,9 @@ export class TasksController {
 
   constructor(
     private readonly tasksService: TasksService,
+    private readonly taskSettingsService: TaskSettingsService,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   @Post()
   @ApiCreatedResponse({
@@ -62,8 +64,20 @@ export class TasksController {
     if (dbTask) {
       // if task already exists, update it
       this.logger.warn(`task ${task.title} already exists, update it`);
-      const ret = await this.updateTask(dbTask.id, mergeDtoAndTask(dbTask, createTaskDto));
-      return ret;
+      // using the old http proxy
+      if (createTaskDto.configuration) {
+        createTaskDto.configuration.TWITTER_HTTP_PROXY = dbTask.configuration.TWITTER_HTTP_PROXY;
+      }
+      return await this.updateTask(dbTask.id, createTaskDto);
+    } else {
+      if (!task.configuration.TWITTER_HTTP_PROXY) {
+        const proxy = await this.taskSettingsService.randomGetHttpProxy();
+        if (!proxy) {
+          this.logger.error('no http proxy found');
+        } else {
+          task.configuration.TWITTER_HTTP_PROXY = proxy;
+        }
+      }
     }
 
     const ret = await this.tasksService.create(task);
@@ -118,13 +132,22 @@ export class TasksController {
     @Param('title') title: string
   ) {
     // pause the task for 4 hours
-    const ret = await this.tasksService.updateByTitle(
-      title, { tags: ['suspended'], pauseUntil: new Date(Date.now() + 1000 * 60 * 60 * 4) }
-    );
-    if (!ret) {
-      // http 400 error
+    const oldTask = await this.tasksService.getTaskByTitle(title);
+    if (!oldTask) {
       throw new BadRequestException('the task not exists');
     }
+
+    let tags: Task['tags'] = ['suspended'];
+    if (oldTask.tags.includes('suspended')) {
+      tags = [...oldTask.tags];
+    } else {
+      tags = [...oldTask.tags, 'suspended'];
+    }
+
+    const ret = await this.tasksService.updateByTitle(
+      // 4h
+      title, { tags, pauseUntil: new Date(Date.now() + 1000 * 60 * 60 * 4) }
+    );
 
     return ret;
   }

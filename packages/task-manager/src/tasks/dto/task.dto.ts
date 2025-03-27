@@ -2,7 +2,7 @@ import { IsString, IsOptional, IsIn } from 'class-validator';
 import { TwitterConfig as ExternalTwitterConfig } from '@elizaos/client-twitter';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { TaskAction, TaskActionName, TaskStatus, TaskStatusName } from '../schemas/task.schema.js';
+import { TaskAction, TaskActionName, TaskStatus, TaskStatusName, TaskTagName, TaskTags } from '../schemas/task.schema.js';
 import { TwitterConfig } from './external.dto.js';
 
 export class CreateTaskDto {
@@ -87,4 +87,17 @@ export class TaskResponseDto {
     description: 'Last update timestamp'
   })
   updatedAt: Date;
+
+  @ApiPropertyOptional({
+    type: Date,
+    description: 'Pause until this date'
+  })
+  pauseUntil?: Date;
+
+  @ApiPropertyOptional({
+    type: [String],
+    enum: TaskTagName,
+    description: 'Task tags'
+  })
+  tags: TaskTags[];
 }

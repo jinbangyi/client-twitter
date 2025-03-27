@@ -30,6 +30,23 @@ export class TasksService {
     return this.taskModel.findById(id).exec();
   }
 
+  async getTasksGroupbyHttpProxy(): Promise<Map<string, Task[]>> {
+    const tasks = await this.taskModel.find();
+    const map = new Map<string, Task[]>();
+    tasks.forEach(task => {
+      const proxy = task.configuration.TWITTER_HTTP_PROXY;
+      if (!proxy) {
+        return;
+      }
+
+      if (!map.has(proxy)) {
+        map.set(proxy, []);
+      }
+      map.get(proxy)?.push(task);
+    });
+    return map;
+  }
+
   async getTaskByTitle(title: string): Promise<Required<Task> | null> {
     return this.taskModel.findOne({ title });
   }
