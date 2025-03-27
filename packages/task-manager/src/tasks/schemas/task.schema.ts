@@ -24,6 +24,10 @@ export enum TaskTagName {
 }
 export type TaskTags = 'suspended';
 
+export function isPaused(task: Task) {
+  return task.pauseUntil && task.pauseUntil > new Date();
+}
+
 @Schema({ collection: taskMongodbCollectionName })
 export class Task {
   id?: string;

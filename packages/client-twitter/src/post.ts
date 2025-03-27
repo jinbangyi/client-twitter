@@ -3,23 +3,22 @@ import {
   composeContext,
   generateText,
   getEmbeddingZeroVector,
-  type IAgentRuntime,
   ModelClass,
   stringToUuid,
-  type TemplateType,
-  type UUID,
   truncateToCompleteSentence,
   parseJSONObjectFromText,
   extractAttributes,
   cleanJsonResponse,
+  postActionResponseFooter,
+  generateTweetActions,
+  ServiceType,
+  type IAgentRuntime,
+  type TemplateType,
+  type UUID,
+  type State,
+  type ActionResponse,
+  type IImageDescriptionService
 } from '@elizaos/core';
-import type { ClientBase } from './base.js';
-import { postActionResponseFooter } from '@elizaos/core';
-import { generateTweetActions } from '@elizaos/core';
-import { type IImageDescriptionService, ServiceType } from '@elizaos/core';
-import { buildConversationThread, fetchMediaData } from './utils.js';
-import { twitterMessageHandlerTemplate } from './interactions.js';
-import { DEFAULT_MAX_TWEET_LENGTH } from './environment.js';
 import {
   Client,
   Events,
@@ -27,12 +26,15 @@ import {
   TextChannel,
   Partials,
 } from 'discord.js';
-import type { State } from '@elizaos/core';
-import type { ActionResponse } from '@elizaos/core';
-import { MediaData } from './types.js';
 import pino from 'pino';
+
+import type { ClientBase } from './base.js';
+import { buildConversationThread, fetchMediaData } from './utils.js';
+import { twitterMessageHandlerTemplate } from './interactions.js';
+import { DEFAULT_MAX_TWEET_LENGTH } from './environment.js';
+import { MediaData } from './types.js';
 import { twitterPostCount } from './monitor/metrics.js';
-import { Logger } from './settings/index.js';
+import { Logger, taskManagerCli } from './settings/index.js';
 
 const MAX_TIMELINES_TO_FETCH = 15;
 
@@ -99,7 +101,7 @@ class RuntimeTwitterPostHelper {
   constructor(
     private runtime: IAgentRuntime,
     private logger: pino.Logger<string, boolean>,
-  ) {}
+  ) { }
 
   /**
    * Generates and posts a new tweet. If isDryRun is true, only logs what would have been posted.
@@ -251,10 +253,10 @@ export class TwitterPostClient {
     processTweetActions: number;
     runPendingTweetCheck: number;
   } = {
-    generateNewTweet: 2,
-    processTweetActions: 2,
-    runPendingTweetCheck: 2,
-  };
+      generateNewTweet: 2,
+      processTweetActions: 2,
+      runPendingTweetCheck: 2,
+    };
 
   private logger: pino.Logger<string, boolean>;
 
@@ -284,23 +286,20 @@ export class TwitterPostClient {
       `- Post Interval: ${this.client.twitterConfig.POST_INTERVAL_MIN}-${this.client.twitterConfig.POST_INTERVAL_MAX} minutes`,
     );
     this.logger.log(
-      `- Action Processing: ${
-        this.client.twitterConfig.ENABLE_ACTION_PROCESSING
-          ? 'enabled'
-          : 'disabled'
+      `- Action Processing: ${this.client.twitterConfig.ENABLE_ACTION_PROCESSING
+        ? 'enabled'
+        : 'disabled'
       }`,
     );
     this.logger.log(
       `- Action Interval: ${this.client.twitterConfig.ACTION_INTERVAL} minutes`,
     );
     this.logger.log(
-      `- Post Immediately: ${
-        this.client.twitterConfig.POST_IMMEDIATELY ? 'enabled' : 'disabled'
+      `- Post Immediately: ${this.client.twitterConfig.POST_IMMEDIATELY ? 'enabled' : 'disabled'
       }`,
     );
     this.logger.log(
-      `- Search Enabled: ${
-        this.client.twitterConfig.TWITTER_SEARCH_ENABLE ? 'enabled' : 'disabled'
+      `- Search Enabled: ${this.client.twitterConfig.TWITTER_SEARCH_ENABLE ? 'enabled' : 'disabled'
       }`,
     );
 
@@ -621,6 +620,13 @@ export class TwitterPostClient {
             `Authorization: Status is a duplicate. (187), content: ${content}`,
           );
         } else {
+          // "Authorization: Denied by access control: Missing TwitterUserNotSuspended"
+          if (body?.errors?.[0]?.message === 'Authorization: Denied by access control: Missing TwitterUserNotSuspended') {
+            // upload the info to task-manager, so that do not retry again
+            await taskManagerCli.tasksControllerSuspendedTask(this.twitterUsername);
+            this.logger.error(`${this.twitterUsername} Account suspended`);
+          }
+
           this.logger.error('Error sending tweet; Bad response:', body);
           // TODO fix 'Authorization: Status is a duplicate. (187)'
           this.logger.error(
@@ -1077,8 +1083,8 @@ export class TwitterPostClient {
                 imageContext:
                   imageDescriptions.length > 0
                     ? `\nImages in Tweet:\n${imageDescriptions
-                        .map((desc, i) => `Image ${i + 1}: ${desc}`)
-                        .join('\n')}`
+                      .map((desc, i) => `Image ${i + 1}: ${desc}`)
+                      .join('\n')}`
                     : '',
                 quotedContent,
               },
@@ -1254,8 +1260,8 @@ export class TwitterPostClient {
           imageContext:
             imageDescriptions.length > 0
               ? `\nImages in Tweet:\n${imageDescriptions
-                  .map((desc, i) => `Image ${i + 1}: ${desc}`)
-                  .join('\n')}`
+                .map((desc, i) => `Image ${i + 1}: ${desc}`)
+                .join('\n')}`
               : '',
           quotedContent,
         },

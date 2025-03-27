@@ -239,23 +239,34 @@ export class ClientBase extends EventEmitter {
     if (ClientBase._twitterClients[username]) {
       this.twitterClient = ClientBase._twitterClients[username];
     } else {
+      // this.twitterClient = new CustomScraper(
+      //   {
+      //     transform: {
+      //       response: (data: any) => {
+      //         if (data.__typename === 'Tweet') {
+      //           return this.parseTweet(data);
+      //         }
+      //         return data;
+      //       },
+      //       request: (data: any) => {
+      //         if (data.__typename === 'Tweet') {
+      //           return this.parseTweet(data);
+      //         }
+      //         return data;
+      //       },
+      //     },
+      //   },
+      //   this.twitterConfig.TWITTER_HTTP_PROXY,
+      // );
       this.twitterClient = new CustomScraper(
         {
-          transform: {
-            response: (data: any) => {
-              if (data.__typename === 'Tweet') {
-                return this.parseTweet(data);
-              }
-              return data;
-            },
-            request: (data: any) => {
-              if (data.__typename === 'Tweet') {
-                return this.parseTweet(data);
-              }
-              return data;
-            },
+          transform: (data) => {
+            if (data.__typename === 'Tweet') {
+              return this.parseTweet(data);
+            }
+            return data;
           },
-        },
+        } as any,
         this.twitterConfig.TWITTER_HTTP_PROXY,
       );
       ClientBase._twitterClients[username] = this.twitterClient;
@@ -328,14 +339,6 @@ export class ClientBase extends EventEmitter {
           }
         }
       } catch (error) {
-        // if the error eq 'Login attempt failed: Invalid URL', it should be `Account suspended`
-        if (error.message === 'Invalid URL') {
-          // upload the info to task-manager, so that do not retry again
-          await taskManagerCli.tasksControllerSuspendedTask(username);
-          // await taskManagerCli.tasksControllerTagTask(username);
-          throw new Error(`${username} Account suspended`);
-        }
-        // TODO upload the info to task-manager, so that do not retry again
         this.logger.error(`Login attempt failed: ${error.message}`);
       }
 

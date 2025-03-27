@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "init-settings": "ts-node ./init-settings.ts"
+    "init-settings": "ts-node ./init-settings.ts",
+    "create-task": "ts-node ./create-task.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.7",

@@ -5,7 +5,7 @@ import { TwitterClient } from '@elizaos/client-twitter';
 import { TasksService } from '../tasks/tasks.service.js';
 import { workerUuid } from '../constant.js';
 import { TaskEvent, TaskEventName } from '../tasks/interfaces/task.interface.js';
-import { TaskStatusName } from '../tasks/schemas/task.schema.js';
+import { isPaused, TaskStatusName } from '../tasks/schemas/task.schema.js';
 import { MongodbLockService } from './lock.service.js';
 
 @Injectable()
@@ -43,8 +43,13 @@ export class ClientTwitterService {
             return;
           }
 
+          if (isPaused(latestTask)) {
+            this.logger.warn(`${prefix} ${payload.task.title} task is paused`);
+            return
+          }
+
           if (latestTask.status === TaskStatusName.RUNNING) {
-            this.logger.warn(`${prefix} ${payload.task.title} error: task is already running`);
+            this.logger.warn(`${prefix} ${payload.task.title} task is already running`);
             return;
           }
 
@@ -56,7 +61,7 @@ export class ClientTwitterService {
           await this.mongodbLockService.releaseLock(payload.task.title);
         }
       } else {
-        this.logger.warn(`${prefix} ${payload.task.title} error: lock not acquired`);
+        this.logger.warn(`${prefix} ${payload.task.title} lock not acquired`);
       }
     } catch (error: any) {
       this.logger.error(`${prefix} ${payload.task.title} error: ${error.message}`);
@@ -105,7 +110,7 @@ export class ClientTwitterService {
           await this.mongodbLockService.releaseLock(payload.task.title);
         }
       } else {
-        this.logger.warn(`${prefix} ${payload.task.title} error: lock not acquired`);
+        this.logger.warn(`${prefix} ${payload.task.title} lock not acquired`);
       }
     } catch (error: any) {
       this.logger.error(`${prefix} ${payload.task.title} error: ${error.message}`);
