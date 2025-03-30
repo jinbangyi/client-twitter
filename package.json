@@ -39,6 +39,7 @@
     },
     "scripts": {
         "build": "turbo run build",
+        "prepare": "pnpm build",
         "dev": "tsup --format esm --dts --watch",
         "start": "node dist/index.js",
         "start:task-manager": "pnpm --filter @xnomad/task-manager start:prod",

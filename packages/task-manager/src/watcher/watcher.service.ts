@@ -188,15 +188,27 @@ export class WatcherService {
       ) {
         // restart the task
         this.logger.debug(`${prefix} configuration changed.`);
-        this.eventEmitter.emit(
-          TaskEventName.TASK_RESTART,
-          new TaskEvent({
-            task,
-            runtime: localTask.runtime,
-            message: `Task ${task.id} restarted`,
-          }),
-        );
-        this.tasks.set(task.title, task);
+        if (task.configuration.TWITTER_USERNAME) {
+          this.eventEmitter.emit(
+            TaskEventName.TASK_RESTART,
+            new TaskEvent({
+              task,
+              runtime: localTask.runtime,
+              message: `Task ${task.id} restarted`,
+            }),
+          );
+          this.tasks.set(task.title, task);
+        } else {
+          // if twitter username is not set, stop the task
+          this.eventEmitter.emit(
+            TaskEventName.TASK_STOP,
+            new TaskEvent({
+              task,
+              runtime: localTask.runtime,
+              message: `Task ${task.id} stopped`,
+            }),
+          );
+        }
       } else {
         if (task.pauseUntil && task.pauseUntil > new Date()) {
           this.logger.debug(`${prefix} task ${task.title} is paused`);

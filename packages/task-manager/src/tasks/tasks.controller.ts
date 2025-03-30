@@ -124,15 +124,15 @@ export class TasksController {
     return ret;
   }
 
-  @Post(':title/report/suspended')
+  @Post(':twitterUserName/report/suspended')
   @ApiCreatedResponse({
     type: TaskResponseDto,
   })
   async suspendedTask(
-    @Param('title') title: string
+    @Param('twitterUserName') twitterUserName: string
   ) {
     // pause the task for 4 hours
-    const oldTask = await this.tasksService.getTaskByTitle(title);
+    const oldTask = await this.tasksService.getTaskByTwitterUserName(twitterUserName);
     if (!oldTask) {
       throw new BadRequestException('the task not exists');
     }
@@ -146,7 +146,7 @@ export class TasksController {
 
     const ret = await this.tasksService.updateByTitle(
       // 4h
-      title, { tags, pauseUntil: new Date(Date.now() + 1000 * 60 * 60 * 4) }
+      oldTask.title, { tags, pauseUntil: new Date(Date.now() + 1000 * 60 * 60 * 4) }
     );
 
     return ret;
