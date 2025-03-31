@@ -178,8 +178,8 @@ export class TwitterClientClass implements Client {
     if (!runtime) runtime = this.runtime;
 
     if (
-      GLOBAL_SETTINGS.getCurrentAgentTwitterAccountStatus(runtime.agentId) ===
-      TwitterClientStatus.RUNNING
+      GLOBAL_SETTINGS.getCurrentAgentTwitterAccountStatus(runtime.agentId) === TwitterClientStatus.RUNNING ||
+      GLOBAL_SETTINGS.getCurrentAgentTwitterAccountStatus(runtime.agentId) === TwitterClientStatus.STOP_FAILED
     ) {
       const twitterConfig = GLOBAL_SETTINGS.getAgentTwitterConfig(runtime.agentId);
       const username = twitterConfig.TWITTER_USERNAME;
@@ -192,6 +192,7 @@ export class TwitterClientClass implements Client {
       const ok = await manager.stop();
 
       if (!ok) {
+        GLOBAL_SETTINGS.setClientTwitterStatus(runtime.agentId, TwitterClientStatus.STOP_FAILED);
         throw new Error(
           `Twitter client ${username} failed to stop, please try again`,
         );

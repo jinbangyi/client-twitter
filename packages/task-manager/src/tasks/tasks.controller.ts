@@ -1,12 +1,10 @@
 import { Controller, Post, Put, Param, Body, BadRequestException, Logger, UseGuards, Get } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ApiCreatedResponse, ApiHeader } from '@nestjs/swagger';
 
 import { TasksService } from './tasks.service.js';
 import { CreateTaskDto, TaskResponseDto, UpdateTaskDto } from './dto/task.dto.js';
 import { Task, TaskStatusName } from './schemas/task.schema.js';
 import { workerUuid } from '../constant.js';
-import { TaskEvent } from './interfaces/task.interface.js';
 import { SHARED_SERVICE } from '../shared/shared.service.js';
 import { AdminApiKeyGuard } from './tasks.guard.js';
 import { TaskSettingsService } from './task-settings.service.js';
@@ -27,7 +25,6 @@ export class TasksController {
     private readonly tasksService: TasksService,
     private readonly taskSettingsService: TaskSettingsService,
     private watcherService: WatcherService,
-    private eventEmitter: EventEmitter2,
   ) { }
 
   @Post()

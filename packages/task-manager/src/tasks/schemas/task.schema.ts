@@ -1,7 +1,7 @@
 import { TwitterConfig } from '@elizaos/client-twitter';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 
-import { taskMongodbCollectionName } from '../../constant.js';
+import { taskMongodbCollectionName, workerUuid } from '../../constant.js';
 
 // completed mean the task is finished by it self
 export enum TaskStatusName {
@@ -28,6 +28,10 @@ export function isPaused(task: Task) {
   return task.pauseUntil && task.pauseUntil > new Date();
 }
 
+export function isRunningByAnotherWorker(task: Task) {
+  return task.status === TaskStatusName.RUNNING && task.createdBy !== workerUuid;
+}
+
 @Schema({ collection: taskMongodbCollectionName })
 export class Task {
   id?: string;
@@ -41,7 +45,7 @@ export class Task {
   @Prop({ type: String })
   description: string;
 
-  @Prop({ type: String, enum: TaskStatusName, default: TaskStatusName.STOPPED })
+  @Prop({ type: String, enum: TaskStatusName })
   status: TaskStatus;
 
   @Prop({ type: Object, required: true })
@@ -50,16 +54,16 @@ export class Task {
   @Prop({ type: [String], enum: TaskTagName })
   tags: TaskTags[];
 
-  @Prop({ type: Date, default: Date.now })
+  @Prop({ type: Date })
   createdAt: Date;
 
   @Prop({ type: String })
   createdBy: string;
 
-  @Prop({ type: Date, default: Date.now })
+  @Prop({ type: Date })
   updatedAt: Date;
 
-  @Prop({ type: Date, default: Date.now })
+  @Prop({ type: Date })
   eventUpdatedAt: Date;
 
   @Prop({ type: Date })

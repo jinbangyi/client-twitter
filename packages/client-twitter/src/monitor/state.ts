@@ -10,5 +10,6 @@ export enum TwitterClientStatus {
   RUNNING = 'RUNNING',
   STOPPING = 'STOPPING',
   STOPPED = 'STOPPED',
+  STOP_FAILED = 'STOP_FAILED',
   ERROR = 'ERROR',
 }

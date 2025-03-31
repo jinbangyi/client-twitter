@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MongooseModule } from '@nestjs/mongoose';
 
@@ -10,6 +10,7 @@ import { MongodbLockService } from './lock.service.js';
 // import { SharedModule } from '../shared/shared.module.js';
 import { ClientTwitterService } from './client-twitter.service.js';
 
+// @Global()
 @Module({
   imports: [
     ScheduleModule.forRoot(),
@@ -18,6 +19,6 @@ import { ClientTwitterService } from './client-twitter.service.js';
     // SharedModule
   ],
   providers: [WatcherService, TasksService, MongodbLockService, ClientTwitterService],
-  exports: [WatcherService, ClientTwitterService],
+  exports: [WatcherService],
 })
 export class WatcherModule { }

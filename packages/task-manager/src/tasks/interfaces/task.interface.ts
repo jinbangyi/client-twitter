@@ -51,7 +51,7 @@ export class TaskEvent {
       event,
     );
     
-    TaskEvent.logger.debug(`task created event emitted: ${ok}`);
+    TaskEvent.logger.debug(`task ${eventName} event emitted: ${ok}`);
     return event;
   }
 

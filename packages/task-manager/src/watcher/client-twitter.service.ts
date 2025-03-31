@@ -5,7 +5,7 @@ import { TwitterClient } from '@elizaos/client-twitter';
 import { TasksService } from '../tasks/tasks.service.js';
 import { workerUuid } from '../constant.js';
 import { TaskEvent, TaskEventName } from '../tasks/interfaces/task.interface.js';
-import { isPaused, TaskStatusName } from '../tasks/schemas/task.schema.js';
+import { isPaused, isRunningByAnotherWorker, TaskStatusName } from '../tasks/schemas/task.schema.js';
 import { MongodbLockService } from './lock.service.js';
 
 @Injectable()
@@ -52,7 +52,7 @@ export class ClientTwitterService {
             return
           }
 
-          if (latestTask.status === TaskStatusName.RUNNING && latestTask.createdBy !== workerUuid) {
+          if (isRunningByAnotherWorker(latestTask)) {
             this.logger.warn(`${prefix} ${payload.task.title} task is already running by another worker`);
             return;
           }
@@ -138,6 +138,7 @@ export class ClientTwitterService {
     }
 
     if (latestTask.eventUpdatedAt && latestTask.eventUpdatedAt > payload.eventCreatedAt) {
+      this.logger.debug(JSON.stringify(latestTask));
       this.logger.warn(`${prefix} ${payload.task.title} event ${payload.eventCreatedAt.toISOString()} is outdated`);
       return true;
     }

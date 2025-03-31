@@ -61,6 +61,7 @@ export class MongodbLockService {
       createdBy: workerUuid,
       expiresAt: { $gt: new Date() }
     });
+    this.logger.debug(`Lock released for task ${taskTitle}`);
 
     if (result.deletedCount === 0) {
       this.logger.error(`Failed to release lock for task ${taskTitle}`);

@@ -8,7 +8,7 @@ import _ from 'lodash';
 import { TasksService } from '../tasks/tasks.service.js';
 import { taskTimeout, workerUuid } from '../constant.js';
 import { TaskEvent, TaskEventName } from '../tasks/interfaces/task.interface.js';
-import { Task, TaskActionName, TaskStatusName } from '../tasks/schemas/task.schema.js';
+import { isRunningByAnotherWorker, Task, TaskActionName, TaskStatusName } from '../tasks/schemas/task.schema.js';
 import { SHARED_SERVICE } from '../shared/shared.service.js';
 
 async function randomDelay() {
@@ -82,7 +82,7 @@ export class WatcherService {
       task.status = TaskStatusName.RUNNING;
     } else if (status === TwitterClientStatus.STOPPED) {
       task.status = TaskStatusName.STOPPED;
-    } else if (status === TwitterClientStatus.ERROR) {
+    } else if (status === TwitterClientStatus.ERROR || status === TwitterClientStatus.STOP_FAILED) {
       task.status = TaskStatusName.STOPPED;
     } else if (status === TwitterClientStatus.STOPPING) {
       task.status = TaskStatusName.RUNNING;
@@ -90,7 +90,7 @@ export class WatcherService {
       this.logger.error(`${prefix} unknown status ${status}`);
     }
 
-    return { task, runtime };
+    return { task, runtime, status };
   }
 
   stopTask(task: Task, options: { clear: boolean } = { clear: true }) {
@@ -180,6 +180,11 @@ export class WatcherService {
     const runtime = this.sharedService.taskRuntime.get(task.title);
     if (!runtime) {
       this.logger.error(`${prefix} ${task.title} runtime not found`);
+      return;
+    }
+
+    if (isRunningByAnotherWorker(task)) {
+      this.logger.warn(`${prefix} ${task.title} is processed by other worker`);
       return;
     }
 
@@ -295,7 +300,9 @@ export class WatcherService {
         continue;
       }
 
-      if (localTask.task.action === TaskActionName.START && localTask.task.status !== TaskStatusName.RUNNING) {
+      if (localTask.status === TwitterClientStatus.STOP_FAILED) {
+        this.stopTask(localTask.task, { clear: false });
+      } else if (localTask.task.action === TaskActionName.START && localTask.task.status !== TaskStatusName.RUNNING) {
         this.startTask(localTask.task, localTask.runtime);
       } else if (localTask.task.action === TaskActionName.STOP && localTask.task.status !== TaskStatusName.STOPPED) {
         this.stopTask(localTask.task, { clear: false });
