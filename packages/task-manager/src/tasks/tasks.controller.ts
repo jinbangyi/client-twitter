@@ -58,7 +58,7 @@ export class TasksController {
       // if task already exists, update it
       this.logger.warn(`task ${task.title} already exists, update it`);
       // using the old http proxy
-      if (createTaskDto.configuration) {
+      if (createTaskDto.configuration && dbTask.configuration.TWITTER_HTTP_PROXY) {
         createTaskDto.configuration.TWITTER_HTTP_PROXY = dbTask.configuration.TWITTER_HTTP_PROXY;
       }
       return await this.updateTask(dbTask.id, createTaskDto);
@@ -98,7 +98,7 @@ export class TasksController {
       throw new BadRequestException(`task ${task.title} runtime not found`);
     }
 
-    this.watcherService.stopTask(task);
+    this.watcherService.stopTask(task, { clear: false });
 
     return task;
   }

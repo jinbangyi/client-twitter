@@ -31,6 +31,7 @@ export class TwitterClientStarter implements Client {
     if(SHARED_SERVICE.taskRuntime.has(twitterConfig.TWITTER_USERNAME!)) {
       this.logger.warn(`task ${twitterConfig.TWITTER_USERNAME!} runtime already exists, will be replaced`);
     }
+
     SHARED_SERVICE.setTaskRuntime(twitterConfig.TWITTER_USERNAME!, runtime);
 
     await task.tasksControllerCreateTask({

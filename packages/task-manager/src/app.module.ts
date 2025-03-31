@@ -27,7 +27,7 @@ import { LoggerMiddleware } from './middleware/logger.middleware.js';
         dbName: mongodbDbName,
         tlsAllowInvalidHostnames: true,
         tlsCAFile: mongodbCaFile,
-        tls: mongodbCaFile ? true: false,
+        // tls: mongodbCaFile ? true: false,
       }
     ),
   ],

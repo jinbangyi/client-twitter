@@ -22,6 +22,8 @@ async function randomDelay() {
   });
 }
 
+const EVERY_2_MINUTE = "*/2 * * * *";
+
 export function CatchCronError(cronTime: string) {
   const logger = new Logger('CronDecorator');
 
@@ -228,14 +230,16 @@ export class WatcherService {
   }
 
   // TODO add action when a twitter client is tagged suspended
-  @CatchCronError(CronExpression.EVERY_MINUTE)
+  @CatchCronError(EVERY_2_MINUTE)
   // @CatchCronError(CronExpression.EVERY_10_SECONDS)
   async checkTaskActionOrConfigurationChanged() {
     const prefix = 'checkTaskActionOrConfigurationChanged';
     this.logger.debug(`${prefix} start`);
+    const taskTitles = new Set(this.tasks.keys());
 
-    const tasks = await this.tasksService.getTaskByTitles(Array.from(this.tasks.keys()));
+    const tasks = await this.tasksService.getTaskByTitles(Array.from(taskTitles));
     for (const task of tasks) {
+      taskTitles.delete(task.title);
       const localTask = this.updateLocalTask(task.title);
       if (!localTask) {
         this.logger.error(`${prefix} localTask ${task.title} not found`);
@@ -282,6 +286,18 @@ export class WatcherService {
           await this.tasksService.updateByTitle(task.title, { createdBy: workerUuid });
         }
       }
+    }
+
+    for (const taskTitle of taskTitles) {
+      const localTask = this.updateLocalTask(taskTitle);
+      if (!localTask) {
+        this.logger.error(`${prefix} localTask ${taskTitle} not found`);
+        continue;
+      }
+
+      this.logger.debug(`${prefix} task ${taskTitle} is not in db`);
+      // if task is not in db, stop the task
+      this.stopTask(localTask.task);
     }
 
     this.logger.debug(`${prefix} end, ${this.tasks.size}`);

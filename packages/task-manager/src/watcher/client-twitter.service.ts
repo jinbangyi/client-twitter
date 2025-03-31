@@ -57,6 +57,11 @@ export class ClientTwitterService {
             return;
           }
 
+          // update the http proxy
+          if (payload?.runtime?.character?.settings?.secrets) {
+            payload.runtime.character.settings.secrets.TWITTER_HTTP_PROXY = payload.task.configuration.TWITTER_HTTP_PROXY as any;
+          }
+
           await TwitterClient.start(payload.runtime);
           await this.tasksService.updateByTitle(
             payload.task.title, { createdBy: workerUuid, status: TaskStatusName.RUNNING, eventUpdatedAt: payload.eventCreatedAt }
