@@ -36,6 +36,10 @@ export class ClientTwitterService {
     try {
       if (await this.mongodbLockService.acquireLock(payload.task.title)) {
         try {
+          if (await this.checkEventOutdated(payload)) {
+            return;
+          }
+
           // check if the task is already running
           const latestTask = await this.tasksService.getTaskByTitle(payload.task.title);
           if (!latestTask) {
@@ -48,14 +52,14 @@ export class ClientTwitterService {
             return
           }
 
-          if (latestTask.status === TaskStatusName.RUNNING) {
-            this.logger.warn(`${prefix} ${payload.task.title} task is already running`);
+          if (latestTask.status === TaskStatusName.RUNNING && latestTask.createdBy !== workerUuid) {
+            this.logger.warn(`${prefix} ${payload.task.title} task is already running by another worker`);
             return;
           }
 
           await TwitterClient.start(payload.runtime);
           await this.tasksService.updateByTitle(
-            payload.task.title, { createdBy: workerUuid, status: TaskStatusName.RUNNING }
+            payload.task.title, { createdBy: workerUuid, status: TaskStatusName.RUNNING, eventUpdatedAt: payload.eventCreatedAt }
           );
         } finally {
           await this.mongodbLockService.releaseLock(payload.task.title);
@@ -99,9 +103,14 @@ export class ClientTwitterService {
     try {
       if (await this.mongodbLockService.acquireLock(payload.task.title)) {
         try {
+          if (await this.checkEventOutdated(payload)) {
+            return;
+          }
+
           await TwitterClient.stop(payload.runtime);
           const task = await this.tasksService.updateByTitle(
-            payload.task.title, { createdBy: workerUuid, status: TaskStatusName.STOPPED }
+            payload.task.title,
+            { createdBy: workerUuid, status: TaskStatusName.STOPPED, eventUpdatedAt: payload.eventCreatedAt }
           );
           if (!task) {
             this.logger.error(`${prefix} ${payload.task.title} error: task not found in db`);
@@ -115,5 +124,23 @@ export class ClientTwitterService {
     } catch (error: any) {
       this.logger.error(`${prefix} ${payload.task.title} error: ${error.message}`);
     }
+  }
+
+  private async checkEventOutdated(payload: TaskEvent) {
+    const prefix = 'checkEventOutdated';
+    this.logger.debug(`${prefix} ${payload.task.title}`);
+
+    // check if the event is outdated
+    const latestTask = await this.tasksService.getTaskByTitle(payload.task.title);
+    if (!latestTask) {
+      this.logger.error(`${prefix} ${payload.task.title} error: task not found in db`);
+      return false;
+    }
+
+    if (latestTask.eventUpdatedAt && latestTask.eventUpdatedAt > payload.eventCreatedAt) {
+      this.logger.warn(`${prefix} ${payload.task.title} event ${payload.eventCreatedAt.toISOString()} is outdated`);
+      return true;
+    }
+    return false;
   }
 }

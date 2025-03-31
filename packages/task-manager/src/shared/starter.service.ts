@@ -27,11 +27,11 @@ export class TwitterClientStarter implements Client {
         'X-ADMIN-API-KEY': process.env.TASK_MANAGER_ADMIN_API_KEY!,
       }
     });
-    if(!SHARED_SERVICE.taskRuntime.has(twitterConfig.TWITTER_USERNAME!)) {
-      SHARED_SERVICE.setTaskRuntime(twitterConfig.TWITTER_USERNAME!, runtime);
-    } else {
-      this.logger.warn(`task ${twitterConfig.TWITTER_USERNAME!} runtime already exists`);
+
+    if(SHARED_SERVICE.taskRuntime.has(twitterConfig.TWITTER_USERNAME!)) {
+      this.logger.warn(`task ${twitterConfig.TWITTER_USERNAME!} runtime already exists, will be replaced`);
     }
+    SHARED_SERVICE.setTaskRuntime(twitterConfig.TWITTER_USERNAME!, runtime);
 
     await task.tasksControllerCreateTask({
       title: twitterConfig.TWITTER_USERNAME!,

@@ -6,17 +6,11 @@ import { TasksService } from './tasks.service.js';
 import { CreateTaskDto, TaskResponseDto, UpdateTaskDto } from './dto/task.dto.js';
 import { Task, TaskStatusName } from './schemas/task.schema.js';
 import { workerUuid } from '../constant.js';
-import { TaskEvent, TaskEventName } from './interfaces/task.interface.js';
+import { TaskEvent } from './interfaces/task.interface.js';
 import { SHARED_SERVICE } from '../shared/shared.service.js';
 import { AdminApiKeyGuard } from './tasks.guard.js';
 import { TaskSettingsService } from './task-settings.service.js';
-
-function mergeDtoAndTask(task: Task, dto: CreateTaskDto | UpdateTaskDto): Task {
-  return {
-    ...task,
-    ...dto,
-  };
-}
+import { WatcherService } from '../watcher/watcher.service.js';
 
 @ApiHeader({
   name: 'X-ADMIN-API-KEY',
@@ -32,6 +26,7 @@ export class TasksController {
   constructor(
     private readonly tasksService: TasksService,
     private readonly taskSettingsService: TaskSettingsService,
+    private watcherService: WatcherService,
     private eventEmitter: EventEmitter2,
   ) { }
 
@@ -50,6 +45,7 @@ export class TasksController {
       status: TaskStatusName.STOPPED,
       createdAt: new Date(),
       updatedAt: new Date(),
+      eventUpdatedAt: new Date(),
       createdBy: workerUuid,
       tags: [],
     };
@@ -80,17 +76,10 @@ export class TasksController {
       }
     }
 
-    const ret = await this.tasksService.create(task);
-    this.eventEmitter.emit(
-      TaskEventName.TASK_CREATED,
-      new TaskEvent({
-        task: ret,
-        runtime: this.sharedService.taskRuntime.get(ret.title)!,
-        message: `Task ${ret.id} created`,
-      }),
-    );
+    const createdTask = await this.tasksService.create(task);
+    this.watcherService.createTask(createdTask);
 
-    return ret;
+    return createdTask;
   }
 
   @Post(':title/stop')
@@ -100,28 +89,21 @@ export class TasksController {
   async stopTask(
     @Param('title') title: string
   ) {
-    const ret = await this.tasksService.stopTask(title);
-    if (!ret) {
+    const task = await this.tasksService.stopTask(title);
+    if (!task) {
       // http 400 error
       throw new BadRequestException('the task not exists');
     }
 
-    if (!this.sharedService.taskRuntime.get(ret.title)) {
-      this.logger.warn(`task ${ret.title} runtime not found`);
+    if (!this.sharedService.taskRuntime.get(task.title)) {
+      this.logger.warn(`task ${task.title} runtime not found`);
       // http 400 error
-      throw new BadRequestException(`task ${ret.title} runtime not found`);
+      throw new BadRequestException(`task ${task.title} runtime not found`);
     }
 
-    this.eventEmitter.emit(
-      TaskEventName.TASK_STOP,
-      new TaskEvent({
-        task: ret,
-        runtime: this.sharedService.taskRuntime.get(ret.title)!,
-        message: `Task ${ret.id} stopped`,
-      }),
-    );
+    this.watcherService.stopTask(task);
 
-    return ret;
+    return task;
   }
 
   @Post(':twitterUserName/report/suspended')
@@ -132,22 +114,26 @@ export class TasksController {
     @Param('twitterUserName') twitterUserName: string
   ) {
     // pause the task for 4 hours
-    const oldTask = await this.tasksService.getTaskByTwitterUserName(twitterUserName);
-    if (!oldTask) {
+    const tasks = await this.tasksService.getTaskByTwitterUserName(twitterUserName);
+    if (tasks.length === 0) {
       throw new BadRequestException('the task not exists');
     }
 
-    let tags: Task['tags'] = ['suspended'];
-    if (oldTask.tags.includes('suspended')) {
-      tags = [...oldTask.tags];
-    } else {
-      tags = [...oldTask.tags, 'suspended'];
-    }
+    const ret: (Task | null)[] = [];
 
-    const ret = await this.tasksService.updateByTitle(
-      // 4h
-      oldTask.title, { tags, pauseUntil: new Date(Date.now() + 1000 * 60 * 60 * 4) }
-    );
+    for (const task of tasks) {
+      let tags: Task['tags'] = ['suspended'];
+      if (task.tags.includes('suspended')) {
+        tags = [...task.tags];
+      } else {
+        tags = [...task.tags, 'suspended'];
+      }
+      const resp = await this.tasksService.updateByTitle(
+        // 4h
+        task.title, { tags, pauseUntil: new Date(Date.now() + 1000 * 60 * 60 * 4) }
+      );
+      ret.push(resp);
+    }
 
     return ret;
   }
@@ -163,28 +149,20 @@ export class TasksController {
     const task: Partial<Task> = {
       ...updateTaskDto,
     };
-    const ret = await this.tasksService.update(id, task);
-    if (!ret) {
+    const updatedTask = await this.tasksService.update(id, task);
+    if (!updatedTask) {
       // http 400 error
       throw new BadRequestException('the task not exists');
     }
 
-    if (!this.sharedService.taskRuntime.get(ret.title)) {
-      this.logger.warn(`task ${ret.title} runtime not found`);
+    if (!this.sharedService.taskRuntime.get(updatedTask.title)) {
+      this.logger.warn(`task ${updatedTask.title} runtime not found`);
       // http 400 error
-      throw new BadRequestException(`task ${ret.title} runtime not found`);
+      throw new BadRequestException(`task ${updatedTask.title} runtime not found`);
     }
 
-    this.eventEmitter.emit(
-      TaskEventName.TASK_UPDATED,
-      new TaskEvent({
-        task: ret,
-        runtime: this.sharedService.taskRuntime.get(ret.title)!,
-        message: `Task ${ret.id} updated`,
-      }),
-    );
-
-    return ret;
+    this.watcherService.updateTask(updatedTask);
+    return updatedTask;
   }
 
   @Get(':title/status')
@@ -200,62 +178,4 @@ export class TasksController {
 
     return ret;
   }
-
-  // @Post(':id/start')
-  // @ApiCreatedResponse({
-  //   type: TaskResponseDto,
-  // })
-  // async startTask(@Param('id') id: string) {
-  //   const ret = await this.tasksService.startTask(id);
-  //   if (!ret) {
-  //     // http 400 error
-  //     throw new BadRequestException('the task not exists');
-  //   }
-
-  //   if (!this.sharedService.taskRuntime.get(ret.title)) {
-  //     this.logger.warn(`task ${ret.title} runtime not found`);
-  //     // http 400 error
-  //     throw new BadRequestException(`task ${ret.title} runtime not found`);
-  //   }
-
-  //   this.eventEmitter.emit(
-  //     TaskEventName.TASK_START,
-  //     new TaskEvent({
-  //       task: ret,
-  //       runtime: this.sharedService.taskRuntime.get(ret.title)!,
-  //       message: `Task ${ret.id} started`,
-  //     }),
-  //   );
-
-  //   return ret;
-  // }
-
-  // @Post(':id/restart')
-  // @ApiCreatedResponse({
-  //   type: TaskResponseDto,
-  // })
-  // async restartTask(@Param('id') id: string) {
-  //   const ret = await this.tasksService.restartTask(id);
-  //   if (!ret) {
-  //     // http 400 error
-  //     throw new BadRequestException('the task not exists');
-  //   }
-
-  //   if (!this.sharedService.taskRuntime.get(ret.title)) {
-  //     this.logger.warn(`task ${ret.title} runtime not found`);
-  //     // http 400 error
-  //     throw new BadRequestException(`task ${ret.title} runtime not found`);
-  //   }
-
-  //   this.eventEmitter.emit(
-  //     TaskEventName.TASK_RESTART,
-  //     new TaskEvent({
-  //       task: ret,
-  //       runtime: this.sharedService.taskRuntime.get(ret.title)!,
-  //       message: `Task ${ret.id} restarted`,
-  //     }),
-  //   );
-
-  //   return ret;
-  // }
 }

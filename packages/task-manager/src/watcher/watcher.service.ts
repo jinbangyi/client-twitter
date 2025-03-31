@@ -51,7 +51,7 @@ export class WatcherService {
   constructor(
     private readonly tasksService: TasksService,
     private eventEmitter: EventEmitter2
-  ) {}
+  ) { }
 
   get tasks(): Map<string, Task> {
     return this.sharedService.tasks;
@@ -63,15 +63,17 @@ export class WatcherService {
 
   // update local task status return task and runtime
   private updateLocalTask(taskTitle: string) {
+    const prefix = 'updateLocalTask';
+
     const task = this.tasks.get(taskTitle);
     if (!task) {
-      this.logger.warn(`task ${taskTitle} not found`);
+      this.logger.warn(`${prefix} ${taskTitle} not found`);
       return;
     }
 
     const runtime = this.taskRuntime.get(task.title);
     if (!runtime) {
-      this.logger.warn(`task ${task.title} runtime not found`);
+      this.logger.warn(`${prefix} ${task.title} runtime not found`);
       return;
     }
 
@@ -85,64 +87,139 @@ export class WatcherService {
     } else if (status === TwitterClientStatus.STOPPING) {
       task.status = TaskStatusName.RUNNING;
     } else {
-      this.logger.error(`unknown status ${status}`);
+      this.logger.error(`${prefix} unknown status ${status}`);
     }
 
     return { task, runtime };
   }
 
-  private stopTask(task: Task, runtime: IAgentRuntime) {
-    this.eventEmitter.emit(
-      TaskEventName.TASK_STOP,
-      new TaskEvent({
-        task,
-        runtime,
-        message: `Task ${task.title} stopped`,
-      }),
+  stopTask(task: Task, options: { clear: boolean } = { clear: true }) {
+    const prefix = 'stopTask';
+    this.logger.debug(`${prefix} ${task.title}`);
+
+    const runtime = this.sharedService.taskRuntime.get(task.title);
+    if (!runtime) {
+      this.logger.error(`${prefix} ${task.title} runtime not found`);
+      return;
+    }
+
+    TaskEvent.createTaskStopEvent(
+      this.eventEmitter,
+      task,
+      runtime,
     );
-    // TODO, what if stop failed
-    this.tasks.delete(task.title);
-    this.taskRuntime.delete(task.title);
+
+    if (options.clear) {
+      // TODO, what if stop failed
+      this.tasks.delete(task.title);
+      this.taskRuntime.delete(task.title);
+    }
+  }
+
+  private restartTask(
+    task: Task,
+    runtime: IAgentRuntime,
+    options: { overwriteTask: boolean } = { overwriteTask: true }
+  ) {
+    this.logger.debug(`restartTask ${task.title}`);
+
+    if (options.overwriteTask) {
+      this.tasks.set(task.title, task);
+    }
+
+    TaskEvent.createTaskRestartEvent(
+      this.eventEmitter,
+      task,
+      runtime,
+    );
+  }
+
+  updateTask(
+    task: Task,
+    options: { overwriteTask: boolean } = { overwriteTask: true }
+  ) {
+    const prefix = 'updateTask';
+    this.logger.debug(`${prefix} ${task.title}`);
+
+    const runtime = this.sharedService.taskRuntime.get(task.title);
+    if (!runtime) {
+      this.logger.error(`${prefix} ${task.title} runtime not found`);
+      return;
+    }
+
+    if (options.overwriteTask) {
+      this.tasks.set(task.title, task);
+    }
+
+    TaskEvent.createTaskUpdatedEvent(
+      this.eventEmitter,
+      task,
+      runtime,
+    );
+  }
+
+  private startTask(
+    task: Task,
+    runtime: IAgentRuntime
+  ) {
+    this.logger.debug(`startTask ${task.title}`);
+
+    TaskEvent.createTaskStartEvent(
+      this.eventEmitter,
+      task,
+      runtime,
+    );
+  }
+
+  createTask(
+    task: Task
+  ) {
+    const prefix = 'createTask';
+    this.logger.debug(`${prefix} ${task.title}`);
+
+    const runtime = this.sharedService.taskRuntime.get(task.title);
+    if (!runtime) {
+      this.logger.error(`${prefix} ${task.title} runtime not found`);
+      return;
+    }
+
+    this.tasks.set(task.title, task);
+    TaskEvent.createTaskCreatedEvent(
+      this.eventEmitter,
+      task,
+      runtime,
+    );
   }
 
   @CatchCronError(CronExpression.EVERY_MINUTE)
   // @CatchCronError(CronExpression.EVERY_10_SECONDS)
   async getNewTasks() {
-    this.logger.debug(`start getNewTasks`);
+    const prefix = 'getNewTasks';
+    this.logger.debug(`${prefix} start`);
 
     const tasks = await this.tasksService.getNewTasks();
     for (const task of tasks) {
       if (this.tasks.has(task.title)) {
-        this.logger.warn(`task ${task.title} already in local tasks`);
+        this.logger.warn(`${prefix} ${task.title} already in local tasks`);
         continue;
       }
 
       if (!this.taskRuntime.has(task.title)) {
-        this.logger.error(`task ${task.title} runtime not found`);
+        this.logger.error(`${prefix} ${task.title} runtime not found`);
         continue;
       }
 
       if (
-        task.status === TaskStatusName.STOPPED || 
+        task.status === TaskStatusName.STOPPED ||
         task.updatedAt.getTime() + taskTimeout < Date.now()
       ) {
-        // start the task
-        this.eventEmitter.emit(
-          TaskEventName.TASK_CREATED,
-          new TaskEvent({
-            task,
-            runtime: this.taskRuntime.get(task.title)!,
-            message: `Task ${task.id} created`,
-          }),
-        );
-        // set tasks
-        this.tasks.set(task.title, task);
+        this.createTask(task);
       } else {
-        this.logger.warn(`task ${task.title} is processed by other worker`);
+        this.logger.warn(`${prefix} ${task.title} is processed by other worker`);
       }
     }
 
-    this.logger.debug(`end getNewTasks ${tasks.length}`);
+    this.logger.debug(`${prefix} end ${tasks.length}`);
   }
 
   // TODO add action when a twitter client is tagged suspended
@@ -156,31 +233,28 @@ export class WatcherService {
     for (const task of tasks) {
       const localTask = this.updateLocalTask(task.title);
       if (!localTask) {
-        this.logger.error(`localTask ${task.title} not found`);
+        this.logger.error(`${prefix} localTask ${task.title} not found`);
         continue;
       }
 
-      // if action changed
-      if (task.action !== this.tasks.get(task.title)!.action) {
+      // if owner changed
+      if (localTask.task.createdBy !== task.createdBy && localTask.task.createdBy === workerUuid) {
+        this.logger.debug(`${prefix} ${task.title} owner changed`);
+        this.stopTask(task);
+      } else if (
+        // if action changed
+        task.action !== this.tasks.get(task.title)!.action
+      ) {
+        this.logger.debug(`${prefix} ${task.title} action changed`);
         // the local task do not maintain stopped task, so ignore the task.action=start
-
         if (task.action === TaskActionName.STOP) {
-          this.logger.debug(`${prefix} stop task`);
-          this.stopTask(task, localTask.runtime);
+          this.stopTask(task);
         } else if (task.action === TaskActionName.RESTART) {
-          // restart the task
-          this.logger.debug(`${prefix} restart task`);
-          this.eventEmitter.emit(
-            TaskEventName.TASK_RESTART,
-            new TaskEvent({
-              task,
-              runtime: localTask.runtime,
-              message: `Task ${task.id} restarted`,
-            }),
-          );
-          this.tasks.set(task.title, task);
+          this.restartTask(task, localTask.runtime);
+        } else if (task.action === TaskActionName.START) {
+          this.logger.debug(`${prefix} ignore changed action ${task.action}`);
         } else {
-          this.logger.error(`unknown action ${task.action}`);
+          this.logger.error(`${prefix} unknown changed action ${task.action}`);
         }
       } else if (
         // configuration changed
@@ -189,30 +263,15 @@ export class WatcherService {
         // restart the task
         this.logger.debug(`${prefix} configuration changed.`);
         if (task.configuration.TWITTER_USERNAME) {
-          this.eventEmitter.emit(
-            TaskEventName.TASK_RESTART,
-            new TaskEvent({
-              task,
-              runtime: localTask.runtime,
-              message: `Task ${task.id} restarted`,
-            }),
-          );
-          this.tasks.set(task.title, task);
+          this.restartTask(task, localTask.runtime);
         } else {
           // if twitter username is not set, stop the task
-          this.eventEmitter.emit(
-            TaskEventName.TASK_STOP,
-            new TaskEvent({
-              task,
-              runtime: localTask.runtime,
-              message: `Task ${task.id} stopped`,
-            }),
-          );
+          this.stopTask(task);
         }
       } else {
         if (task.pauseUntil && task.pauseUntil > new Date()) {
           this.logger.debug(`${prefix} task ${task.title} is paused`);
-          this.stopTask(task, localTask.runtime);
+          this.stopTask(task);
         } else {
           // update task update time
           await this.tasksService.updateByTitle(task.title, { createdBy: workerUuid });
@@ -226,53 +285,27 @@ export class WatcherService {
   @CatchCronError(CronExpression.EVERY_30_SECONDS)
   // @CatchCronError(CronExpression.EVERY_10_SECONDS)
   async checkLocalTasksStatus() {
-    this.logger.debug(`start checkLocalTasksStatus`);
+    const prefix = 'checkLocalTasksStatus';
+    this.logger.debug(`${prefix} start`);
 
     for (const task of this.tasks) {
       const localTask = this.updateLocalTask(task[0]);
       if (!localTask) {
-        this.logger.error(`localTask ${task[0]} not found`);
+        this.logger.error(`${prefix} localTask ${task[0]} not found`);
         continue;
       }
 
       if (localTask.task.action === TaskActionName.START && localTask.task.status !== TaskStatusName.RUNNING) {
-        // start the task
-        const ret = this.eventEmitter.emit(
-          TaskEventName.TASK_START,
-          new TaskEvent({
-            task: localTask.task,
-            runtime: localTask.runtime,
-            message: `Task ${localTask.task.id} started`,
-          }),
-        );
-        this.logger.debug(`task ${localTask.task.title} started, ${ret}`);
+        this.startTask(localTask.task, localTask.runtime);
       } else if (localTask.task.action === TaskActionName.STOP && localTask.task.status !== TaskStatusName.STOPPED) {
-        // stop the task
-        this.eventEmitter.emit(
-          TaskEventName.TASK_STOP,
-          new TaskEvent({
-            task: localTask.task,
-            runtime: localTask.runtime,
-            message: `Task ${localTask.task.id} stopped`,
-          }),
-        );
-        this.logger.debug(`task ${localTask.task.title} stopped`);
+        this.stopTask(localTask.task, { clear: false });
       } else if (localTask.task.action === TaskActionName.RESTART && localTask.task.status !== TaskStatusName.RESTARTED) {
-        // restar the task
-        this.eventEmitter.emit(
-          TaskEventName.TASK_RESTART,
-          new TaskEvent({
-            task: localTask.task,
-            runtime: localTask.runtime,
-            message: `Task ${localTask.task.id} restarted`,
-          }),
-        );
-        this.logger.debug(`task ${localTask.task.title} restarted`);
+        this.restartTask(localTask.task, localTask.runtime, { overwriteTask: false });
       } else {
-        this.logger.debug(`task ${localTask.task.title} status is expected`);
+        this.logger.debug(`${prefix} ${localTask.task.title} status is expected`);
       }
     }
 
-    this.logger.debug(`end checkLocalTasksStatus ${this.tasks.size}`);
+    this.logger.debug(`${prefix} end ${this.tasks.size}`);
   }
 }

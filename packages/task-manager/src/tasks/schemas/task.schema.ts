@@ -59,6 +59,9 @@ export class Task {
   @Prop({ type: Date, default: Date.now })
   updatedAt: Date;
 
+  @Prop({ type: Date, default: Date.now })
+  eventUpdatedAt: Date;
+
   @Prop({ type: Date })
   pauseUntil?: Date;
 }

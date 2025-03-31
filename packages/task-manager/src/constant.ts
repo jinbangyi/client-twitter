@@ -30,8 +30,8 @@ assert(taskManagerBaseEndpoint, 'TASK_MANAGER_BASE_ENDPOINT is required');
 
 // used for local running
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-export const TWITTER_HTTP_PROXY=process.env.TWITTER_HTTP_PROXY;
-export const TWITTER_USERNAME=process.env.TWITTER_USERNAME;
-export const TWITTER_PASSWORD=process.env.TWITTER_PASSWORD;
-export const TWITTER_2FA_SECRET=process.env.TWITTER_2FA_SECRET;
-export const TWITTER_EMAIL=process.env.TWITTER_EMAIL;
+export const TWITTER_HTTP_PROXY = process.env.TWITTER_HTTP_PROXY;
+export const TWITTER_USERNAME = process.env.TWITTER_USERNAME;
+export const TWITTER_PASSWORD = process.env.TWITTER_PASSWORD;
+export const TWITTER_2FA_SECRET = process.env.TWITTER_2FA_SECRET;
+export const TWITTER_EMAIL = process.env.TWITTER_EMAIL;
