@@ -12,8 +12,9 @@ import { SqliteDatabaseAdapter } from '@elizaos/adapter-sqlite';
 import Database from 'better-sqlite3';
 import express from 'express';
 
-import { TwitterClientInterface } from '../src/index';
-import { wrapperFetchFunction } from '../src/scraper';
+import { TwitterClientInterface } from '../packages/client-twitter/src/index';
+import { wrapperFetchFunction } from '../packages/client-twitter/src/scraper';
+import { bootstrap } from '../packages/task-manager/src/main';
 // import { register } from '../src/monitor/metrics';
 import { exit } from 'process';
 import client from 'prom-client';
@@ -103,6 +104,9 @@ async function startServer() {
 }
 
 async function start() {
+  // start task manager
+  await bootstrap();
+
   const characters: Character[] = [
     initCharacter('debug', {
       secrets: {
@@ -127,16 +131,16 @@ async function start() {
   );
 
   for (const runtime of runtimes) {
+    // start the client
     await TwitterClientInterface.start(runtime);
   }
-
-  startServer();
 
   // Run for 5 minutes
   await new Promise((resolve) => setTimeout(resolve, 1000 * 60 * 7));
 
   console.log('start to stop the client');
   for (const runtime of runtimes) {
+    // stop the client
     await TwitterClientInterface.stop(runtime);
   }
 

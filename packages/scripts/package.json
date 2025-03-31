@@ -1,0 +1,22 @@
+{
+  "name": "@xnomad/client-twitter-scripts",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "init-settings": "ts-node ./init-settings.ts",
+    "create-task": "ts-node ./create-task.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "@xnomad/task-manager-cli": "workspace:*"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  },
+  "packageManager": "pnpm@9.15.2",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
