@@ -148,7 +148,7 @@ export class TwitterClientClass implements Client {
     );
 
     try {
-      twitterAccountStatus.labels(twitterConfig.TWITTER_USERNAME, proxy).set(1);
+      twitterAccountStatus.labels(twitterConfig.TWITTER_USERNAME, proxy, runtime.agentId).set(1);
       // init the post count
       twitterPostCount.labels(twitterConfig.TWITTER_USERNAME).inc(0);
       // if badder then max, there must be some issue
@@ -168,7 +168,7 @@ export class TwitterClientClass implements Client {
       await manager.start();
       return this;
     } catch (error) {
-      twitterAccountStatus.labels(twitterConfig.TWITTER_USERNAME, proxy).set(0);
+      twitterAccountStatus.labels(twitterConfig.TWITTER_USERNAME, proxy, runtime.agentId).set(0);
       GLOBAL_SETTINGS.setClientTwitterStatus(runtime.agentId, TwitterClientStatus.STOPPED);
       throw error;
     }
@@ -185,7 +185,7 @@ export class TwitterClientClass implements Client {
       const username = twitterConfig.TWITTER_USERNAME;
       const proxy = this.getProxy(twitterConfig.TWITTER_HTTP_PROXY);
 
-      twitterAccountStatus.labels(username, proxy).set(2);
+      twitterAccountStatus.labels(username, proxy, runtime.agentId).set(2);
 
       GLOBAL_SETTINGS.setClientTwitterStatus(runtime.agentId, TwitterClientStatus.STOPPING);
       const manager: TwitterManager = GLOBAL_SETTINGS.getAgentTwitterManager(runtime.agentId);
@@ -198,7 +198,7 @@ export class TwitterClientClass implements Client {
         );
       } else {
         GLOBAL_SETTINGS.removeClientTwitter(runtime.agentId);
-        twitterAccountStatus.labels(username, proxy).set(0);
+        twitterAccountStatus.labels(username, proxy, runtime.agentId).set(0);
         Logger.info(`Twitter client ${runtime.agentId} stopped`);
       }
     } else {
