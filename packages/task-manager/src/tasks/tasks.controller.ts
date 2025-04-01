@@ -57,6 +57,15 @@ export class TasksController {
     if (dbTask) {
       // if task already exists, update it
       this.logger.warn(`task ${task.title} already exists, update it`);
+      if (!dbTask.configuration.TWITTER_HTTP_PROXY) {
+        const proxy = await this.taskSettingsService.randomGetHttpProxy();
+        if (!proxy) {
+          this.logger.error('no http proxy found');
+        } else {
+          dbTask.configuration.TWITTER_HTTP_PROXY = proxy;
+        }
+      }
+
       // using the old http proxy
       if (createTaskDto.configuration && dbTask.configuration.TWITTER_HTTP_PROXY) {
         createTaskDto.configuration.TWITTER_HTTP_PROXY = dbTask.configuration.TWITTER_HTTP_PROXY;

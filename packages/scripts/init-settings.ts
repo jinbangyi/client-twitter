@@ -18,12 +18,12 @@ async function start() {
   const taskSettings = new TaskSettings({
     baseURL: TASK_MANAGER_BASE_ENDPOINT,
     headers: {
-      'X-ADMIN-API-KEY': process.env.TASK_MANAGER_ADMIN_API_KEY!,
+      'X-ADMIN-API-KEY': TASK_MANAGER_ADMIN_API_KEY!,
     }
   });
 
   // read values from the file
-  const filePath = `${__dirname}/data/${PROXY_FILE}`;
+  const filePath = `${process.cwd()}/data/${PROXY_FILE}`;
   /**
   * [{
       "entryPoint": "example.com",

@@ -5,8 +5,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "init-settings": "ts-node ./init-settings.ts",
-    "create-task": "ts-node ./create-task.ts",
+    "init-settings": "node --loader ts-node/esm ./init-settings.ts",
+    "create-task": "node --loader ts-node/esm ./create-task.ts",
     "debug-client-twitter": "node --loader ts-node/esm ./debug-client-twitter.ts"
   },
   "dependencies": {
