@@ -19,6 +19,7 @@ import {
   twitterPostCount,
   twitterPostInterval,
 } from './monitor/metrics.js';
+import { wrapperFetchFunction } from './scraper.js';
 
 /**
  * A manager that orchestrates all specialized Twitter logic:
@@ -219,4 +220,4 @@ export const TwitterClient: Client & {
 export const TwitterClientInterface: Client = TwitterClient;
 
 export default TwitterClientInterface;
-export { TwitterClientStatus, TwitterConfig, ActionTimelineType, validateTwitterConfig };
+export { TwitterClientStatus, TwitterConfig, ActionTimelineType, validateTwitterConfig, wrapperFetchFunction };

@@ -35,6 +35,7 @@ import { DEFAULT_MAX_TWEET_LENGTH } from './environment.js';
 import { MediaData } from './types.js';
 import { twitterPostCount } from './monitor/metrics.js';
 import { Logger, taskManagerCli } from './settings/index.js';
+import { TwitterDataFetcher } from './data-fetcher/twitter.js';
 
 const MAX_TIMELINES_TO_FETCH = 15;
 
@@ -98,89 +99,18 @@ interface PendingTweet {
 type PendingTweetApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 class RuntimeTwitterPostHelper {
+  private twitterDataFetcher: TwitterDataFetcher;
+
   constructor(
     private runtime: IAgentRuntime,
     private logger: pino.Logger<string, boolean>,
-  ) { }
+  ) {
+    const pumpNewsApikey = this.runtime.getSetting('PUMPNEWS_API_KEY') || process.env?.PUMPNEWS_API_KEY;
+    const twitterapiApikey = this.runtime.getSetting('TWITTERAPI_API_KEY') || process.env?.TWITTERAPI_API_KEY;
+    this.twitterDataFetcher = new TwitterDataFetcher(pumpNewsApikey, twitterapiApikey);
+  }
 
-  /**
-   * Generates and posts a new tweet. If isDryRun is true, only logs what would have been posted.
-   */
-  async generatePostTweet(username: string, max_tweet_length: number) {
-    const roomId = stringToUuid('twitter_generate_room-' + username);
-    const topics = this.runtime.character.topics.join(', ');
-    // it's better to using 4/5 MAX_LEN to prevent reach the limit
-    const maxTweetLength = Math.floor((max_tweet_length * 4) / 5);
-
-    let tokenTweets: {
-      symbol: string;
-      tweetContents: string[];
-    };
-    if (this.runtime.character.topics.includes('crypto currency news')) {
-      const trendingTokens = await getTrendingTokens(
-        this.runtime.getSetting('BIRDEYE_API_KEY'),
-      );
-      for (const item of trendingTokens) {
-        const itemKey = 'token:analysis:' + item.symbol;
-        const postTime: number | undefined =
-          await this.runtime.cacheManager.get(itemKey);
-        if (postTime && Date.now() - postTime < 1000 * 60 * 60 * 12) {
-          continue;
-        }
-        const pumpNewsApikey =
-          this.runtime.getSetting('PUMPNEWS_API_KEY') ||
-          process.env?.PUMPNEWS_API_KEY;
-        const tweets = await fetchPumpNews(pumpNewsApikey, item.address);
-        if (!tweets || tweets.length < 8) {
-          continue;
-        }
-        tokenTweets = {
-          symbol: item.symbol,
-          tweetContents: tweets.map((tweet) => tweet.text),
-        };
-        Logger.log(
-          `Found trending token:, ${item.symbol} with ${tweets.length} tweets`,
-        );
-        await this.runtime.cacheManager.set(itemKey, Date.now());
-        break;
-      }
-    }
-
-    const state = await this.runtime.composeState(
-      {
-        userId: this.runtime.agentId,
-        roomId: roomId,
-        agentId: this.runtime.agentId,
-        content: {
-          text: topics || '',
-          action: 'TWEET',
-        },
-      },
-      {
-        twitterUserName: username,
-        maxTweetLength,
-        tokenSymbol: tokenTweets?.symbol,
-        tweetContents: tokenTweets?.tweetContents,
-      },
-    );
-
-    const context = composeContext({
-      state,
-      template:
-        this.runtime.character.templates?.twitterPostTemplate ||
-        twitterPostTemplate,
-    });
-
-    this.logger.debug('generate post prompt:\n' + context);
-
-    const response = await generateText({
-      runtime: this.runtime,
-      context,
-      modelClass: ModelClass.SMALL,
-    });
-
-    const rawTweetContent = cleanJsonResponse(response);
-
+  private async handleRawTweetContent(rawTweetContent: string, maxTweetLength: number) {
     // First attempt to clean content
     let tweetTextForPosting = null;
     let mediaData = null;
@@ -204,7 +134,7 @@ class RuntimeTwitterPostHelper {
       if (parsingText) {
         tweetTextForPosting = truncateToCompleteSentence(
           extractAttributes(rawTweetContent, ['text']).text,
-          max_tweet_length,
+          maxTweetLength,
         );
       }
     }
@@ -228,6 +158,149 @@ class RuntimeTwitterPostHelper {
 
     // Final cleaning
     tweetTextForPosting = removeQuotes(fixNewLines(tweetTextForPosting));
+
+    return { tweetTextForPosting, mediaData };
+  }
+
+  /**
+   * Generates and posts a new tweet. If isDryRun is true, only logs what would have been posted.
+   */
+  async generatePostTweet(username: string, max_tweet_length: number) {
+    // it's better to using 4/5 MAX_LEN to prevent reach the limit
+    const maxTweetLength = Math.floor((max_tweet_length * 4) / 5);
+
+    if (this.runtime.character.topics.includes('crypto currency news')) {
+      return await this.generateCryptoCurrencyNews(username, maxTweetLength);
+    }
+
+    const roomId = stringToUuid('twitter_generate_room-' + username);
+    const topics = this.runtime.character.topics.join(', ');
+
+    const state = await this.runtime.composeState(
+      {
+        userId: this.runtime.agentId,
+        roomId: roomId,
+        agentId: this.runtime.agentId,
+        content: {
+          text: topics || '',
+          action: 'TWEET',
+        },
+      },
+      {
+        twitterUserName: username,
+        maxTweetLength,
+      },
+    );
+
+    const context = composeContext({
+      state,
+      template:
+        this.runtime.character.templates?.twitterPostTemplate ||
+        twitterPostTemplate,
+    });
+
+    this.logger.debug('generate post prompt:\n' + context);
+
+    const response = await generateText({
+      runtime: this.runtime,
+      context,
+      modelClass: ModelClass.SMALL,
+    });
+
+    const rawTweetContent = cleanJsonResponse(response);
+    const { tweetTextForPosting, mediaData } = await this.handleRawTweetContent(
+      rawTweetContent,
+      maxTweetLength,
+    );
+
+    return { tweetTextForPosting, rawTweetContent, mediaData, roomId };
+  }
+
+  private async generateCryptoCurrencyNews(username: string, maxTweetLength: number) {
+    const roomId = stringToUuid('twitter_generate_room-' + username);
+    const topics = this.runtime.character.topics.join(', ');
+
+    let tokenTweets: {
+      symbol: string;
+      tweetContents: string[];
+    };
+    const trendingTokens = await getTrendingTokens(
+      this.runtime.getSetting('BIRDEYE_API_KEY'),
+    );
+    for (const item of trendingTokens) {
+      const itemKey = 'token:analysis:' + item.symbol;
+      const postTime: number | undefined =
+        await this.runtime.cacheManager.get(itemKey);
+      if (postTime && Date.now() - postTime < 1000 * 60 * 60 * 12) {
+        continue;
+      }
+      
+      const tweets = await this.twitterDataFetcher.fetchTweets({ address: item.address, symbol: item.symbol });
+      if (tweets.length < 8) {
+        continue;
+      }
+
+      tokenTweets = {
+        symbol: item.symbol,
+        tweetContents: tweets,
+      };
+      Logger.log(
+        `Found trending token:, ${item.symbol} with ${tweets.length} tweets`,
+      );
+      await this.runtime.cacheManager.set(itemKey, Date.now());
+      break;
+    }
+
+    let additionalKeys: { [key: string]: any };
+    let template: TemplateType;
+    if (tokenTweets) {
+      additionalKeys = {
+        twitterUserName: username,
+        maxTweetLength,
+        tokenSymbol: tokenTweets?.symbol,
+        tweetContents: tokenTweets?.tweetContents,
+      };
+      template = this.runtime.character.templates?.twitterPostTemplate || twitterPostTemplate;
+    } else {
+      additionalKeys = {
+        twitterUserName: username,
+        maxTweetLength,
+        trendingTokens: trendingTokens.map((item) => item.symbol).join(', '),
+      };
+      template = template = this.runtime.character.templates?.twitterPostTemplate || twitterPostTemplate;
+    }
+
+    const state = await this.runtime.composeState(
+      {
+        userId: this.runtime.agentId,
+        roomId: roomId,
+        agentId: this.runtime.agentId,
+        content: {
+          text: topics || '',
+          action: 'TWEET',
+        },
+      },
+      additionalKeys,
+    );
+
+    const context = composeContext({
+      state,
+      template,
+    });
+
+    this.logger.debug('generate post prompt:\n' + context);
+
+    const response = await generateText({
+      runtime: this.runtime,
+      context,
+      modelClass: ModelClass.SMALL,
+    });
+
+    const rawTweetContent = cleanJsonResponse(response);
+    const { tweetTextForPosting, mediaData } = await this.handleRawTweetContent(
+      rawTweetContent,
+      maxTweetLength,
+    );
 
     return { tweetTextForPosting, rawTweetContent, mediaData, roomId };
   }
@@ -399,6 +472,8 @@ export class TwitterPostClient {
         Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes;
       const delay = randomMinutes * 60 * 1000;
 
+      this.logger.info("Next tweet scheduled in " + new Date(lastPostTimestamp + delay).toISOString() + " minutes");
+      
       while (Date.now() <= lastPostTimestamp + delay) {
         // 1 minute
         await new Promise((resolve) => setTimeout(resolve, 60 * 1000));
@@ -1582,18 +1657,6 @@ export class TwitterPostClient {
   }
 }
 
-interface TokenTweet {
-  id: number;
-  token_address: string;
-  symbol: string;
-  network: string;
-  text: string;
-  favorite_count: number;
-  quote_count: number;
-  reply_count: number;
-  retweet_count: number;
-}
-
 async function getTrendingTokens(birdeypeApiKey: string): Promise<
   {
     address: string;
@@ -1616,27 +1679,6 @@ async function getTrendingTokens(birdeypeApiKey: string): Promise<
     return result?.data.tokens;
   } catch (error) {
     Logger.error(`Error fetching trending tokens:, error`);
-    return null;
-  }
-}
-
-async function fetchPumpNews(
-  apikey: string,
-  token: string,
-): Promise<TokenTweet[]> {
-  const url = `https://api.pump.news/tweets/list?tokenAddress=${token}&pageSize=20`;
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        accept: '*/*',
-        apikey: apikey,
-      },
-    });
-    const result = await response.json();
-    return result?.data.tweets;
-  } catch (e) {
-    Logger.error(`Error fetching pump news: ${e}`);
     return null;
   }
 }

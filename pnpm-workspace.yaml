@@ -1,5 +1,2 @@
 packages:
-    - "docs"
-    - "packages/*"
-    - "client"
-    - "agent"
+- "packages/*"

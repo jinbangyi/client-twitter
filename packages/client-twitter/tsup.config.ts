@@ -8,16 +8,14 @@ export default defineConfig({
     dts: {
         resolve: true,
     },
-    format: ["esm", "cjs"], // Ensure you're targeting CommonJS
+    format: ["esm", "cjs"],
     external: [
-        "dotenv", // Externalize dotenv to prevent bundling
-        "fs", // Externalize fs to use Node.js built-in module
-        "path", // Externalize other built-ins if necessary
+        "dotenv",
+        "path",
         "@reflink/reflink",
         "@node-llama-cpp",
         "https",
         "http",
-        "agentkeepalive",
-        // Add other modules you want to externalize
+        "agentkeepalive"
     ],
 });

@@ -2,16 +2,26 @@
   "name": "@xnomad/client-twitter-scripts",
   "version": "0.0.1",
   "description": "",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "init-settings": "ts-node ./init-settings.ts",
-    "create-task": "ts-node ./create-task.ts"
+    "create-task": "ts-node ./create-task.ts",
+    "debug-client-twitter": "node --loader ts-node/esm ./debug-client-twitter.ts"
   },
   "dependencies": {
+    "@elizaos/core": "0.1.9",
+    "@elizaos/adapter-sqlite": "0.1.9",
+    "better-sqlite3": "11.8.1",
     "dotenv": "^16.4.7",
-    "@xnomad/task-manager-cli": "workspace:*"
+    "express": "^4.21.2",
+    "@xnomad/task-manager-cli": "workspace:*",
+    "@elizaos/client-twitter": "workspace:*"
   },
   "devDependencies": {
+    "prom-client": "^15.1.3",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "20.17.19",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
   },
