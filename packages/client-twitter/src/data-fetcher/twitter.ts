@@ -1,6 +1,6 @@
 import {
   Logger,
-} from '../settings/index.js';
+} from '../settings/external.js';
 
 interface TokenTweet {
   id: number;

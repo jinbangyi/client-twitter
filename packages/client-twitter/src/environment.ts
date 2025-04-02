@@ -65,14 +65,14 @@ export const twitterEnvSchema = z.object({
         .optional()
         .default(''),
     */
-  ENABLE_TWITTER_POST_GENERATION: z.boolean(),
+  ENABLE_TWITTER_POST_GENERATION: z.boolean().optional(),
   POST_INTERVAL_MIN: z.number().int(),
   POST_INTERVAL_MAX: z.number().int(),
   ENABLE_ACTION_PROCESSING: z.boolean(),
   ACTION_INTERVAL: z.number().int(),
   POST_IMMEDIATELY: z.boolean(),
   TWITTER_SPACES_ENABLE: z.boolean().default(false),
-  MAX_ACTIONS_PROCESSING: z.number().int(),
+  MAX_ACTIONS_PROCESSING: z.number().int().optional(),
   ACTION_TIMELINE_TYPE: z
     .nativeEnum(ActionTimelineType)
     .default(ActionTimelineType.ForYou),
@@ -81,6 +81,9 @@ export const twitterEnvSchema = z.object({
   TWITTER_COOKIES_AUTH_TOKEN: z.string().optional(),
   TWITTER_COOKIES_CT0: z.string().optional(),
   TWITTER_COOKIES_GUEST_ID: z.string().optional(),
+
+  APPROVAL_CHECK_INTERVAL: z.number().int().optional(),
+  TWITTER_APPROVAL_ENABLED: z.boolean().optional(),
 });
 
 export type TwitterConfig = z.infer<typeof twitterEnvSchema>;
@@ -247,6 +250,13 @@ export async function validateTwitterConfig(
       TWITTER_COOKIES_GUEST_ID:
         runtime.getSetting('TWITTER_COOKIES_GUEST_ID') ||
         process.env.TWITTER_COOKIES_GUEST_ID,
+
+      TWITTER_APPROVAL_ENABLED:
+        runtime.getSetting('TWITTER_APPROVAL_ENABLED')?.toLocaleLowerCase() === 'true',
+      APPROVAL_CHECK_INTERVAL:
+        Number.parseInt(
+          runtime.getSetting('TWITTER_APPROVAL_CHECK_INTERVAL'),
+        ) || 5 * 60 * 1000,
     };
 
     return twitterEnvSchema.parse(twitterConfig);

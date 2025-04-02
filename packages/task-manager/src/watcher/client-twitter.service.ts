@@ -31,7 +31,7 @@ export class ClientTwitterService {
   // can not combine multi event
   private async taskStart(payload: TaskEvent) {
     const prefix = 'taskStart';
-    this.logger.debug(`${prefix} ${payload.task.title}`);
+    this.logger.log(`${prefix} ${payload.task.title}`);
 
     try {
       if (await this.mongodbLockService.acquireLock(payload.task.title)) {
@@ -93,7 +93,7 @@ export class ClientTwitterService {
 
   private async taskRestart(payload: TaskEvent) {
     const prefix = 'taskRestart';
-    this.logger.debug(`${prefix} ${payload.task.title}`);
+    this.logger.log(`${prefix} ${payload.task.title}`);
 
     try {
       // do not update the db status, so do not invoke this.onTaskStop
@@ -107,7 +107,7 @@ export class ClientTwitterService {
   @OnEvent(TaskEventName.TASK_STOP)
   async onTaskStop(payload: TaskEvent) {
     const prefix = 'onTaskStop';
-    this.logger.debug(`${prefix} ${payload.task.title}`);
+    this.logger.log(`${prefix} ${payload.task.title}`);
 
     try {
       if (await this.mongodbLockService.acquireLock(payload.task.title)) {

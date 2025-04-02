@@ -234,6 +234,19 @@ export interface UpdateTaskDto {
   configuration?: TwitterConfig;
 }
 
+export interface ErrorReportDto {
+  /**
+   * Agent ID associated with the task
+   * @example "agent-123"
+   */
+  agentId: string;
+  /**
+   * Error message to be reported
+   * @example "Connection timeout while accessing Twitter API"
+   */
+  message: string;
+}
+
 export interface UpdateTaskSettingsDto {
   entryPoint: string;
   ip: string;
@@ -252,6 +265,8 @@ export type TasksControllerSuspendedTaskData = TaskResponseDto;
 export type TasksControllerUpdateTaskData = TaskResponseDto;
 
 export type TasksControllerGetTaskData = TaskResponseDto;
+
+export type TasksControllerReportErrorData = TaskResponseDto;
 
 export type TaskSettingsControllerUpdateManagerSettingsData = any;
 

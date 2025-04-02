@@ -1,15 +1,8 @@
-import { elizaLogger, UUID, type IAgentRuntime } from '@elizaos/core';
-import pino from 'pino';
-import { Tasks } from '@xnomad/task-manager-cli'
+import { UUID, type IAgentRuntime } from '@elizaos/core';
 
 import { TwitterClientState, TwitterClientStatus } from '../monitor/state';
 import { TwitterConfig } from '../environment';
 import { type TwitterManager } from '..';
-
-export const Logger: pino.Logger<string, boolean> = elizaLogger.child({
-  plugin: 'client-twitter',
-  name: 'client-twitter',
-});
 
 class ClientTwitterStatement {
   // stop or start or other
@@ -124,11 +117,3 @@ export class GlobalSettings {
 }
 
 export const GLOBAL_SETTINGS = new GlobalSettings();
-
-const TASK_MANAGER_BASE_ENDPOINT = process.env.TASK_MANAGER_BASE_ENDPOINT;
-export const taskManagerCli = new Tasks({
-  baseURL: TASK_MANAGER_BASE_ENDPOINT!,
-  headers: {
-    'X-ADMIN-API-KEY': process.env.TASK_MANAGER_ADMIN_API_KEY!,
-  }
-});

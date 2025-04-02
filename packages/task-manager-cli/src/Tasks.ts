@@ -12,8 +12,10 @@
 
 import {
   CreateTaskDto,
+  ErrorReportDto,
   TasksControllerCreateTaskData,
   TasksControllerGetTaskData,
+  TasksControllerReportErrorData,
   TasksControllerStopTaskData,
   TasksControllerSuspendedTaskData,
   TasksControllerUpdateTaskData,
@@ -28,7 +30,7 @@ export class Tasks<SecurityDataType = unknown> extends HttpClient<SecurityDataTy
    * @tags Tasks
    * @name TasksControllerCreateTask
    * @request POST:/client-twitter/tasks
-   * @response `201` `TasksControllerCreateTaskData`
+   * @response `201` `TasksControllerCreateTaskData` will full nested object for example configuration, so you should be careful when using this
    */
   tasksControllerCreateTask = (data: CreateTaskDto, params: RequestParams = {}) =>
     this.request<TasksControllerCreateTaskData, any>({
@@ -98,6 +100,23 @@ export class Tasks<SecurityDataType = unknown> extends HttpClient<SecurityDataTy
     this.request<TasksControllerGetTaskData, any>({
       path: `/client-twitter/tasks/${title}/status`,
       method: 'GET',
+      format: 'json',
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Tasks
+   * @name TasksControllerReportError
+   * @request POST:/client-twitter/tasks/{twitterUserName}/report/error
+   * @response `201` `TasksControllerReportErrorData` Returns the task with updated error information
+   */
+  tasksControllerReportError = (twitterUserName: string, data: ErrorReportDto, params: RequestParams = {}) =>
+    this.request<TasksControllerReportErrorData, any>({
+      path: `/client-twitter/tasks/${twitterUserName}/report/error`,
+      method: 'POST',
+      body: data,
+      type: ContentType.Json,
       format: 'json',
       ...params,
     });

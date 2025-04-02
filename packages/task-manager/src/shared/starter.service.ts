@@ -7,7 +7,7 @@ import { TaskActionName } from '@xnomad/task-manager-cli';
 
 import { SHARED_SERVICE } from './shared.service.js';
 import { taskManagerBaseEndpoint } from '../constant.js';
-import { getTaskTitle } from '../tasks/schemas/task.schema.js';
+import { autoFixTwitterUsername, getTaskTitle } from '../tasks/schemas/task.schema.js';
 
 function initTaskCli() {
   const task = new Tasks({
@@ -37,7 +37,11 @@ export class TwitterClientStarter implements Client {
 
     const twitterConfig: TwitterConfig = await validateTwitterConfig(runtime);
     assert(twitterConfig.TWITTER_USERNAME, 'TWITTER_USERNAME is required');
+    twitterConfig.TWITTER_USERNAME = autoFixTwitterUsername(twitterConfig.TWITTER_USERNAME);
     this.twitterUsername = twitterConfig.TWITTER_USERNAME;
+    if (runtime?.character?.settings?.secrets?.TWITTER_USERNAME) {
+      runtime.character.settings.secrets.TWITTER_USERNAME = autoFixTwitterUsername(this.twitterUsername);
+    }
 
     const title = getTaskTitle(this.twitterUsername, this.nftId);
     // inject the runtime to the task manager

@@ -11,8 +11,11 @@ import { TwitterSearchClient } from './search.js';
 import { TwitterSpaceClient } from './spaces.js';
 import {
   GLOBAL_SETTINGS,
-  Logger,
 } from './settings/index.js';
+import {
+  Logger,
+  uploadErrorMessageToTaskManager,
+} from './settings/external.js';
 import { TwitterClientStatus } from './monitor/state.js';
 import {
   twitterAccountStatus,
@@ -69,11 +72,19 @@ export class TwitterManager {
 
   async start() {
     // TODO fix transaction issue
-    // Initialize login/session
-    await this.client.init();
-
-    // Start the posting loop
-    await this.post.start();
+    try {
+      // Initialize login/session
+      await this.client.init();
+      // Start the posting loop
+      await this.post.start();
+    } catch (error) {
+      await uploadErrorMessageToTaskManager(
+        this.client.twitterConfig.TWITTER_USERNAME,
+        this.client.runtime.agentId,
+        error,
+      )
+      throw error;
+    }
 
     // Start the search logic if it exists
     if (this.search) {

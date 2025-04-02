@@ -27,6 +27,8 @@ async function start() {
   const resp = await tasks.tasksControllerCreateTask({
     title: TWITTER_USERNAME!,
     action: TaskActionName.Start,
+    agentId: 'debug',
+    nftId: 'debug',
     configuration: {
       TWITTER_USERNAME,
       TWITTER_PASSWORD,

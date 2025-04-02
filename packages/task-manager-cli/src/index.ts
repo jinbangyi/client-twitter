@@ -1,5 +1,5 @@
 import { Tasks } from './Tasks.js'
 import { TaskSettings } from './TaskSettings.js'
-import { TaskActionName } from './data-contracts.js'
+import { TaskActionName, type TasksControllerReportErrorData, type TaskResponseDto } from './data-contracts.js'
 
-export { Tasks, TaskActionName, TaskSettings }
+export { Tasks, TaskActionName, TaskSettings, TasksControllerReportErrorData, TaskResponseDto }

@@ -148,6 +148,11 @@ export class WatcherService {
     return { task, runtime, status };
   }
 
+  private clearLocalTask(taskTitle: string) {
+    this.tasks.delete(taskTitle);
+    this.taskRuntime.delete(taskTitle);
+  }
+
   stopTask(task: Task, options: { clear: boolean } = { clear: true }) {
     const prefix = 'stopTask';
     this.logger.debug(`${prefix} ${task.title}`);
@@ -166,8 +171,7 @@ export class WatcherService {
 
     if (options.clear) {
       // TODO, what if stop failed
-      this.tasks.delete(task.title);
-      this.taskRuntime.delete(task.title);
+      this.clearLocalTask(task.title);
     }
   }
 
@@ -271,11 +275,11 @@ export class WatcherService {
 
       if (
         task.status === TaskStatusName.STOPPED ||
-        task.updatedAt.getTime() + taskTimeout < Date.now()
+        (task.updatedAt.getTime() + taskTimeout) < Date.now()
       ) {
         this.createTask(task);
       } else {
-        this.logger.warn(`${prefix} ${task.title} is processed by other worker`);
+        this.logger.warn(`${prefix} ${task.title} ${task.updatedAt} is processed by other worker`);
       }
     }
 
@@ -353,8 +357,13 @@ export class WatcherService {
       }
 
       this.logger.debug(`${prefix} task ${taskTitle} is not in db`);
-      // if task is not in db, stop the task
-      this.stopTask(localTask.task);
+      if (localTask.task.status === TaskStatusName.RUNNING) {
+        // stop the task
+        this.stopTask(localTask.task, { clear: false });
+      } else {
+        // clear the task
+        this.clearLocalTask(localTask.task.title);
+      }
     }
 
     this.logger.debug(`${prefix} end, ${this.tasks.size}`);

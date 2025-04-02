@@ -1,4 +1,4 @@
-import { twitterEnvSchema } from '../environment';
+import { twitterEnvSchema } from '../environment.js';
 
 describe('Twitter Environment Configuration', () => {
   describe('Username Validation', () => {

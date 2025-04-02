@@ -1,7 +1,7 @@
 import { TwitterConfig } from '@elizaos/client-twitter';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 
-import { taskMongodbCollectionName, workerUuid } from '../../constant.js';
+import { taskMongodbCollectionName, taskTimeout, workerUuid } from '../../constant.js';
 
 // completed mean the task is finished by it self
 export enum TaskStatusName {
@@ -29,10 +29,19 @@ export function isPaused(task: Task) {
 }
 
 export function isRunningByAnotherWorker(task: Task) {
-  return task.status === TaskStatusName.RUNNING && task.createdBy !== workerUuid;
+  return task.status === TaskStatusName.RUNNING && task.createdBy !== workerUuid && (task.updatedAt.getTime() + taskTimeout) > Date.now();
+}
+
+export function autoFixTwitterUsername(twitterUsername: string) {
+  // remove @ from the username
+  if (twitterUsername.startsWith('@')) {
+    twitterUsername = twitterUsername.slice(1);
+  }
+  return twitterUsername;
 }
 
 export function getTaskTitle(twitterUsername: string, nftId: string) {
+  twitterUsername = autoFixTwitterUsername(twitterUsername);
   return `${twitterUsername}-${nftId}`;
 }
 
@@ -136,6 +145,7 @@ export class Task {
 export const TaskSchema = SchemaFactory.createForClass(Task);
 
 TaskSchema.index({ title: 1 }, { unique: true });
+TaskSchema.index({ agentId: 1 }, { unique: true });
 TaskSchema.index({ nftId: 1 }, { unique: true });
 TaskSchema.index({ createdBy: 1, status: 1 });
 TaskSchema.index({ updatedAt: 1, status: 1 });

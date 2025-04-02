@@ -34,7 +34,8 @@ import { twitterMessageHandlerTemplate } from './interactions.js';
 import { DEFAULT_MAX_TWEET_LENGTH } from './environment.js';
 import { MediaData } from './types.js';
 import { twitterPostCount } from './monitor/metrics.js';
-import { Logger, taskManagerCli } from './settings/index.js';
+import { Logger, taskManagerCli, uploadErrorMessageToTaskManager } from './settings/external.js';
+import { defaultRunWithErrorHandling } from './help-functions/tasks.js';
 import { TwitterDataFetcher } from './data-fetcher/twitter.js';
 
 const MAX_TIMELINES_TO_FETCH = 15;
@@ -310,14 +311,14 @@ export class TwitterPostClient {
   client: ClientBase;
   runtime: IAgentRuntime;
   twitterUsername: string;
+  private approvalCheckInterval: number;
+
   private isProcessing = false;
   private lastProcessTime = 0;
   private isDryRun: boolean;
   private discordClientForApproval: Client;
   private approvalRequired = false;
   private discordApprovalChannelId: string;
-  private approvalCheckInterval: number;
-  private runPendingTweetCheckInterval: NodeJS.Timeout;
   private runtimeTwitterPostHelper: RuntimeTwitterPostHelper;
 
   private backendTaskStatus: {
@@ -388,10 +389,7 @@ export class TwitterPostClient {
     }
 
     // Initialize Discord webhook
-    const approvalRequired: boolean =
-      this.runtime
-        .getSetting('TWITTER_APPROVAL_ENABLED')
-        ?.toLocaleLowerCase() === 'true';
+    const approvalRequired = this.client.twitterConfig.TWITTER_APPROVAL_ENABLED;
     if (approvalRequired) {
       const discordToken = this.runtime.getSetting(
         'TWITTER_APPROVAL_DISCORD_BOT_TOKEN',
@@ -400,12 +398,7 @@ export class TwitterPostClient {
         'TWITTER_APPROVAL_DISCORD_CHANNEL_ID',
       );
 
-      const APPROVAL_CHECK_INTERVAL =
-        Number.parseInt(
-          this.runtime.getSetting('TWITTER_APPROVAL_CHECK_INTERVAL'),
-        ) || 5 * 60 * 1000; // 5 minutes
-
-      this.approvalCheckInterval = APPROVAL_CHECK_INTERVAL;
+      this.approvalCheckInterval = this.client.twitterConfig.APPROVAL_CHECK_INTERVAL || 5 * 60 * 1000;
 
       if (!discordToken || !approvalChannelId) {
         throw new Error(
@@ -451,72 +444,99 @@ export class TwitterPostClient {
     );
   }
 
+  private async generateNewTweetLoop() {
+    let lastDelay: number;
+
+    await defaultRunWithErrorHandling(
+      'generateNewTweetLoop',
+      this.client.twitterConfig.TWITTER_USERNAME,
+      this.client.runtime.agentId,
+      (value?: number) => {
+        if (value !== undefined) {
+          this.backendTaskStatus.generateNewTweet = value;
+        }
+        return this.backendTaskStatus.generateNewTweet
+      },
+      async () => {
+        const lastPost = await this.runtime.cacheManager.get<{
+          timestamp: number;
+          id?: string;
+        }>(`twitter/${this.client.profile.username}/lastPost`);
+    
+        const lastPostTimestamp = lastPost?.timestamp ?? 0;
+        const minMinutes = this.client.twitterConfig.POST_INTERVAL_MIN;
+        const maxMinutes = this.client.twitterConfig.POST_INTERVAL_MAX;
+        const randomMinutes =
+          Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes;
+        const delay = randomMinutes * 60 * 1000;
+
+        this.logger.info("Next tweet scheduled at " + new Date(lastPostTimestamp + delay).toISOString());
+        while (Date.now() <= lastPostTimestamp + (lastDelay ?? delay)) {
+          // 1 minute
+          await new Promise((resolve) => setTimeout(resolve, 60 * 1000));
+        }
+
+        await this.generateNewTweet();
+        lastDelay = delay;
+        return delay;
+      },
+    );
+  }
+
+  private async processActionsLoop() {
+    const actionInterval = this.client.twitterConfig.ACTION_INTERVAL; // Defaults to 5 minutes
+
+    await defaultRunWithErrorHandling(
+      'processActionsLoop',
+      this.client.twitterConfig.TWITTER_USERNAME,
+      this.client.runtime.agentId,
+      (value?: number) => {
+        if (value !== undefined) {
+          this.backendTaskStatus.processTweetActions = value;
+        }
+        return this.backendTaskStatus.processTweetActions
+      },
+      async () => {
+        const results = await this.processTweetActions();
+        if (results) {
+          this.logger.log(`Processed ${results.length} tweets`);
+          this.logger.log(
+            `Next action processing scheduled in ${actionInterval} minutes`,
+          );
+        }
+        return undefined;
+      },
+      {
+        checkInterval: actionInterval * 60 * 1000, // now in minutes
+      }
+    );
+  }
+
+  private async runPendingTweetCheckLoop() {
+    await defaultRunWithErrorHandling(
+      'runPendingTweetCheckLoop',
+      this.client.twitterConfig.TWITTER_USERNAME,
+      this.client.runtime.agentId,
+      (value?: number) => {
+        if (value !== undefined) {
+          this.backendTaskStatus.runPendingTweetCheck = value;
+        }
+        return this.backendTaskStatus.runPendingTweetCheck
+      },
+      async () => {
+        await this.handlePendingTweet();
+        return undefined;
+      },
+      {
+        checkInterval: this.approvalCheckInterval,
+      }
+    );
+  }
+
   async start() {
     if (!this.client.profile) {
       await this.client.init();
     }
-
-    const generateNewTweetLoop = async () => {
-      if (this.backendTaskStatus.generateNewTweet === 0) return;
-      this.backendTaskStatus.generateNewTweet = 1;
-
-      const lastPost = await this.runtime.cacheManager.get<{
-        timestamp: number;
-        id?: string;
-      }>(`twitter/${this.client.profile.username}/lastPost`);
-
-      const lastPostTimestamp = lastPost?.timestamp ?? 0;
-      const minMinutes = this.client.twitterConfig.POST_INTERVAL_MIN;
-      const maxMinutes = this.client.twitterConfig.POST_INTERVAL_MAX;
-      const randomMinutes =
-        Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes;
-      const delay = randomMinutes * 60 * 1000;
-
-      this.logger.info("Next tweet scheduled in " + new Date(lastPostTimestamp + delay).toISOString() + " minutes");
-      
-      while (Date.now() <= lastPostTimestamp + delay) {
-        // 1 minute
-        await new Promise((resolve) => setTimeout(resolve, 60 * 1000));
-      }
-
-      await this.generateNewTweet();
-      this.backendTaskStatus.generateNewTweet = 2;
-
-      setTimeout(() => {
-        generateNewTweetLoop().catch((err) => {
-          this.logger.error('Error in generateNewTweetLoop:', err);
-        }); // Set up next iteration
-      }, delay);
-
-      this.logger.info(`Next tweet scheduled in ${randomMinutes} minutes`);
-    };
-
-    const processActionsLoop = async () => {
-      const actionInterval = this.client.twitterConfig.ACTION_INTERVAL; // Defaults to 5 minutes
-
-      while (!(this.backendTaskStatus.processTweetActions === 0)) {
-        try {
-          this.backendTaskStatus.processTweetActions = 1;
-          const results = await this.processTweetActions();
-          this.backendTaskStatus.processTweetActions = 2;
-
-          if (results) {
-            this.logger.log(`Processed ${results.length} tweets`);
-            this.logger.log(
-              `Next action processing scheduled in ${actionInterval} minutes`,
-            );
-            // Wait for the full interval before next processing
-            await new Promise(
-              (resolve) => setTimeout(resolve, actionInterval * 60 * 1000), // now in minutes
-            );
-          }
-        } catch (error) {
-          this.logger.error('Error in action processing loop:', error);
-          // Add exponential backoff on error
-          await new Promise((resolve) => setTimeout(resolve, 30000)); // Wait 30s on error
-        }
-      }
-    };
 
     if (this.client.twitterConfig.POST_IMMEDIATELY) {
       await this.generateNewTweet();
@@ -525,28 +545,15 @@ export class TwitterPostClient {
     }
 
     if (this.client.twitterConfig.ENABLE_TWITTER_POST_GENERATION) {
-      generateNewTweetLoop();
-      this.logger.info('Tweet generation loop started');
+      this.generateNewTweetLoop();
     }
 
     if (this.client.twitterConfig.ENABLE_ACTION_PROCESSING) {
-      processActionsLoop().catch((error) => {
-        this.logger.error('Fatal error in process actions loop:', error);
-      });
+      this.processActionsLoop();
     }
 
     // Start the pending tweet check loop if enabled
     if (this.approvalRequired) this.runPendingTweetCheckLoop();
-  }
-
-  private runPendingTweetCheckLoop() {
-    const interval = setInterval(async () => {
-      this.backendTaskStatus.runPendingTweetCheck = 1;
-      await this.handlePendingTweet();
-      this.backendTaskStatus.runPendingTweetCheck = 2;
-    }, this.approvalCheckInterval);
-
-    this.runPendingTweetCheckInterval = interval;
   }
 
   createTweetObject(
@@ -837,12 +844,19 @@ export class TwitterPostClient {
           this.twitterUsername,
           postTweet.mediaData,
         ).catch((error) => {
+          uploadErrorMessageToTaskManager(
+            this.client.twitterConfig.TWITTER_USERNAME,
+            this.client.runtime.agentId,
+            error,
+          );
           this.logger.error('Error posting tweet:', error);
         });
       }
       this.logger.log('postTweet end');
     } catch (error) {
-      this.logger.error('Error generateNewTweet:', error);
+      throw new Error(
+        `generateNewTweet: ${error}`,
+      );
     }
   }
 
@@ -1414,13 +1428,15 @@ export class TwitterPostClient {
       return false;
     }
 
-    if (this.runPendingTweetCheckInterval) {
-      clearInterval(this.runPendingTweetCheckInterval);
-      this.runPendingTweetCheckInterval = null;
+    if (this.backendTaskStatus.runPendingTweetCheck === 2) {
       this.backendTaskStatus.runPendingTweetCheck = 0;
       this.logger.info(
-        `${this.twitterUsername} task runPendingTweetCheckInterval stopped`,
+        `${this.twitterUsername} task runPendingTweetCheck stopped`,
       );
+    } else if (this.backendTaskStatus.runPendingTweetCheck === 0) {
+      // stopped
+    } else {
+      return false;
     }
 
     return true;

@@ -2,13 +2,91 @@ import { Controller, Post, Put, Param, Body, BadRequestException, Logger, UseGua
 import { ApiCreatedResponse, ApiHeader } from '@nestjs/swagger';
 
 import { TasksService } from './tasks.service.js';
-import { CreateTaskDto, TaskResponseDto, UpdateTaskDto } from './dto/task.dto.js';
-import { Task, TaskStatusName } from './schemas/task.schema.js';
+import { CreateTaskDto, ErrorReportDto, TaskResponseDto, UpdateTaskDto } from './dto/task.dto.js';
+import { autoFixTwitterUsername, Task, TaskStatusName } from './schemas/task.schema.js';
 import { workerUuid } from '../constant.js';
 import { SHARED_SERVICE } from '../shared/shared.service.js';
 import { AdminApiKeyGuard } from './tasks.guard.js';
 import { TaskSettingsService } from './task-settings.service.js';
 import { WatcherService } from '../watcher/watcher.service.js';
+
+interface ErrorCacheConfig {
+  maxLength: number;
+  timeoutMs: number;
+  updateIntervalMs: number; // Minimum interval between DB updates
+}
+
+interface ErrorEntry {
+  message: string;
+  timestamp: number;
+}
+
+class ErrorCacheService {
+  private cache: Map<string, ErrorEntry[]> = new Map();
+  private lastUpdateTime: Map<string, number> = new Map();
+  private config: ErrorCacheConfig = {
+    maxLength: 10,
+    timeoutMs: 16 * 1000, // 16 sec timeout
+    updateIntervalMs: 15 * 1000 // 15 seconds between updates
+  };
+
+  addError(taskTitle: string, errorMessage: string): boolean {
+    if (!this.cache.has(taskTitle)) {
+      this.cache.set(taskTitle, []);
+    }
+
+    const errors = this.cache.get(taskTitle)!;
+    const now = Date.now();
+    const lastUpdate = this.lastUpdateTime.get(taskTitle) || 0;
+
+    // Clean up old errors but keep errors within the time window
+    const recentErrors = errors.filter(
+      error => now - error.timestamp < this.config.timeoutMs
+    );
+
+    // Add new error
+    recentErrors.push({ message: errorMessage, timestamp: now });
+    this.cache.set(taskTitle, recentErrors);
+
+    // Check if we should trigger an update based on:
+    // 1. Enough time has passed since last update
+    // 2. Have enough errors accumulated
+    return (now - lastUpdate >= this.config.updateIntervalMs && recentErrors.length > 0) || 
+           recentErrors.length >= this.config.maxLength;
+  }
+
+  getAggregatedErrors(taskTitle: string): ErrorEntry | null {
+    const errors = this.cache.get(taskTitle);
+    if (!errors || errors.length === 0) return null;
+
+    const now = Date.now();
+    this.lastUpdateTime.set(taskTitle, now);
+
+    // Get all errors within the time window
+    const timeWindowErrors = errors.filter(
+      error => now - error.timestamp < this.config.timeoutMs
+    );
+
+    if (timeWindowErrors.length === 0) {
+      this.cache.delete(taskTitle);
+      return null;
+    }
+
+    // Aggregate errors into a single message
+    // Limit to the last 10 errors for aggregation
+    const aggregatedMessage = timeWindowErrors.slice(timeWindowErrors.length - 10)
+      .map(error => `[${new Date(error.timestamp).toISOString()}] ${error.message}`)
+      .join('\n');
+
+    // Clear cache after aggregating
+    this.cache.delete(taskTitle);
+
+    return {
+      message: aggregatedMessage,
+      timestamp: now
+    };
+  }
+}
 
 @ApiHeader({
   name: 'X-ADMIN-API-KEY',
@@ -19,6 +97,7 @@ import { WatcherService } from '../watcher/watcher.service.js';
 @UseGuards(AdminApiKeyGuard)
 export class TasksController {
   private readonly logger = new Logger(`${TasksController.name}_${workerUuid}`);
+  private errorCacheService = new ErrorCacheService();
   private sharedService = SHARED_SERVICE;
 
   constructor(
@@ -35,8 +114,10 @@ export class TasksController {
   async createTask(
     @Body() createTaskDto: CreateTaskDto
   ) {
-    if (createTaskDto.configuration?.TWITTER_USERNAME && createTaskDto.configuration.TWITTER_USERNAME.startsWith('@')) {
-      createTaskDto.configuration.TWITTER_USERNAME = createTaskDto.configuration.TWITTER_USERNAME.slice(1);
+    if (createTaskDto.configuration?.TWITTER_USERNAME) {
+      createTaskDto.configuration.TWITTER_USERNAME = autoFixTwitterUsername(
+        createTaskDto.configuration.TWITTER_USERNAME
+      );
     }
 
     const task: Task = {
@@ -129,6 +210,7 @@ export class TasksController {
   async suspendedTask(
     @Param('twitterUserName') twitterUserName: string
   ) {
+    // TODO using getTaskByTwitterUserNameAndAgentId
     // pause the task for 4 hours
     const tasks = await this.tasksService.getTaskByTwitterUserName(twitterUserName);
     if (tasks.length === 0) {
@@ -196,5 +278,38 @@ export class TasksController {
     }
 
     return ret;
+  }
+
+  @Post(':twitterUserName/report/error')
+  @ApiCreatedResponse({
+    type: TaskResponseDto,
+    description: 'Returns the task with updated error information',
+  })
+  async reportError(
+    @Param('twitterUserName') twitterUserName: string,
+    @Body() body: ErrorReportDto
+  ) {
+    const task = await this.tasksService.getTaskByTwitterUserNameAndAgentId(twitterUserName, body.agentId);
+    if (!task) {
+      throw new BadRequestException('the task not exists');
+    }
+
+    const shouldUpdate = this.errorCacheService.addError(task.title, body.message);
+
+    if (shouldUpdate) {
+      const latestError = this.errorCacheService.getAggregatedErrors(task.title);
+      if (latestError) {
+        const updatedTask = await this.tasksService.updateByTitle(task.title, {
+          lastError: {
+            message: latestError.message,
+            updatedAt: new Date(latestError.timestamp),
+          },
+        });
+
+        return updatedTask;
+      }
+    }
+
+    return task;
   }
 }

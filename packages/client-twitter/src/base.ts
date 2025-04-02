@@ -15,11 +15,13 @@ import {
   type Tweet,
 } from 'agent-twitter-client';
 import { EventEmitter } from 'events';
+import pino from 'pino';
+
 import type { TwitterConfig } from './environment.js';
 import { CustomScraper } from './scraper.js';
-import { Logger, GLOBAL_SETTINGS, taskManagerCli } from './settings/index.js';
+import { GLOBAL_SETTINGS } from './settings/index.js';
+import { Logger } from './settings/external.js';
 import { TwitterClientState } from './monitor/state.js';
-import pino from 'pino';
 
 export function extractAnswer(text: string): string {
   const startIndex = text.indexOf('Answer: ') + 8;
@@ -230,8 +232,7 @@ export class ClientBase extends EventEmitter {
     this.twitterConfig = twitterConfig;
     // TODO fix when twitter username changed
     this.logger = Logger.child({
-      twitterName: this.twitterConfig.TWITTER_USERNAME,
-      name: this.twitterConfig.TWITTER_USERNAME,
+      name: `${this.twitterConfig.TWITTER_USERNAME}-${this.runtime.agentId}`,
     });
     this.runtimeHelper = new RuntimeHelper(runtime, this.logger);
     const username = twitterConfig.TWITTER_USERNAME;

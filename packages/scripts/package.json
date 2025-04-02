@@ -7,6 +7,7 @@
   "scripts": {
     "init-settings": "node --loader ts-node/esm ./init-settings.ts",
     "create-task": "node --loader ts-node/esm ./create-task.ts",
+    "init-debug-runtime": "/bin/bash init-debug-runtime.sh",
     "debug-client-twitter": "node --loader ts-node/esm ./debug-client-twitter.ts"
   },
   "dependencies": {
@@ -23,6 +24,7 @@
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "20.17.19",
     "ts-node": "^10.9.2",
+    "@types/express": "5.0.0",
     "typescript": "^5.7.3"
   },
   "packageManager": "pnpm@9.15.2",

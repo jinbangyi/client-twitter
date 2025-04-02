@@ -64,6 +64,16 @@ export class TasksService {
     return this.taskModel.find({ 'configuration.TWITTER_USERNAME': twitterUserName });
   }
 
+  async getTaskByTwitterUserNameAndAgentId(
+    twitterUserName: string,
+    agentId: string
+  ): Promise<Required<Task> | null> {
+    return this.taskModel.findOne({
+      'configuration.TWITTER_USERNAME': twitterUserName,
+      agentId,
+    });
+  }
+
   async getTaskByTitles(titles: string[]): Promise<Task[]> {
     const tasks = await this.taskModel.find({ title: { $in: titles } });
     return tasks;

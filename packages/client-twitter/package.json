@@ -20,8 +20,8 @@
     ],
     "dependencies": {
         "@elizaos/core": "0.1.9",
-        "agent-twitter-client": "https://github.com/xNomad-AI/agent-twitter-client#8af978f5fbf5e02555efa423d2355ba1a8cb804a",
         "@xnomad/task-manager-cli": "workspace:*",
+        "agent-twitter-client": "https://github.com/xNomad-AI/agent-twitter-client#8af978f5fbf5e02555efa423d2355ba1a8cb804a",
         "axios": "^1.7.9",
         "discord.js": "14.16.3",
         "glob": "11.0.0",
@@ -32,6 +32,7 @@
         "zod": "3.24.1"
     },
     "devDependencies": {
+        "@jest/globals": "^29.7.0",
         "@types/better-sqlite3": "^7.6.12",
         "@types/express": "^5.0.0",
         "@types/jest": "^29.5.11",
@@ -42,6 +43,7 @@
         "eslint-plugin-prettier": "5.2.3",
         "jest": "^29.7.0",
         "prettier": "3.5.1",
+        "ts-jest": "^29.3.1",
         "tsup": "8.3.5",
         "typescript": "5.7.3"
     },
@@ -49,11 +51,9 @@
         "build": "tsup --format esm --dts",
         "dev": "tsup --format esm --dts --watch",
         "start": "node dist/index.js",
-        "test": "vitest run",
-        "test:coverage": "vitest run --coverage",
+        "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings' jest",
         "format": "prettier --write \"src/**/*.ts\" \"__tests__/**/*.ts\" \"debug/**/*.ts\"",
-        "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-        "debug1": "tsup debug/test-logger.ts && node dist/test-logger.js"
+        "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
     },
     "peerDependencies": {
         "whatwg-url": "7.1.0"
@@ -63,6 +63,6 @@
     },
     "packageManager": "pnpm@9.15.7",
     "workspaces": [
-      "packages/*"
+        "packages/*"
     ]
 }

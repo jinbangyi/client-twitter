@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsIn } from 'class-validator';
+import { IsString, IsOptional, IsIn, IsNotEmpty } from 'class-validator';
 import { TwitterConfig as ExternalTwitterConfig } from '@elizaos/client-twitter';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -118,4 +118,22 @@ export class TaskResponseDto {
     description: 'Task tags'
   })
   tags: TaskTags[];
+}
+
+export class ErrorReportDto {
+  @ApiProperty({
+    description: 'Agent ID associated with the task',
+    example: 'agent-123',
+  })
+  @IsString()
+  @IsNotEmpty()
+  agentId: string;
+
+  @ApiProperty({
+    description: 'Error message to be reported',
+    example: 'Connection timeout while accessing Twitter API',
+  })
+  @IsString()
+  @IsNotEmpty()
+  message: string;
 }
