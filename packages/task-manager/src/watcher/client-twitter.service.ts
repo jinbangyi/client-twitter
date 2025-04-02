@@ -61,6 +61,10 @@ export class ClientTwitterService {
           if (payload?.runtime?.character?.settings?.secrets) {
             payload.runtime.character.settings.secrets.TWITTER_HTTP_PROXY = payload.task.configuration.TWITTER_HTTP_PROXY as any;
           }
+          if (!payload?.runtime?.character?.settings?.secrets?.TWITTER_USERNAME) {
+            this.logger.warn(`${prefix} ${payload.task.title} TWITTER_USERNAME not found in runtime`);
+            return;
+          }
 
           await TwitterClient.start(payload.runtime);
           await this.tasksService.updateByTitle(
@@ -73,7 +77,7 @@ export class ClientTwitterService {
         this.logger.warn(`${prefix} ${payload.task.title} lock not acquired`);
       }
     } catch (error: any) {
-      this.logger.error(`${prefix} ${payload.task.title} error: ${error.message}`);
+      this.logger.error(`${prefix} ${payload.task.title} msg: ${error.message}`);
     }
   }
 
