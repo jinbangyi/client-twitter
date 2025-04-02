@@ -2,17 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { TaskManagerModule } from './app.module.js';
 import { taskManagerHttpServicePort } from './constant.js';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-// import metadata from './metadata';
-// import { WatcherService } from './watcher/watcher.service';
-
-// const vars = { };
 
 export async function bootstrap() {
   const app = await NestFactory.create(TaskManagerModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
-  // const myService = app.get(WatcherService);
-  // myService.setTaskRuntime('test', vars);
 
   const config = new DocumentBuilder()
     .setTitle('My API')

@@ -7,53 +7,64 @@ import { TaskActionName } from '@xnomad/task-manager-cli';
 
 import { SHARED_SERVICE } from './shared.service.js';
 import { taskManagerBaseEndpoint } from '../constant.js';
+import { getTaskTitle } from '../tasks/schemas/task.schema.js';
 
+function initTaskCli() {
+  const task = new Tasks({
+    baseURL: taskManagerBaseEndpoint,
+    headers: {
+      'X-ADMIN-API-KEY': process.env.TASK_MANAGER_ADMIN_API_KEY!,
+    }
+  });
+  return task;
+}
+
+const task = initTaskCli();
+
+// should be only run once, each agent should using one instance of this class
 export class TwitterClientStarter implements Client {
   private runtime: IAgentRuntime;
   private logger = new Logger(TwitterClientStarter.name);
-  private agentIdTwitterUserName: Map<string, string> = new Map();
+  private agentId: string;
+  private twitterUsername: string;
+
+  constructor(private nftId: string) { }
 
   // one loop to start all actions, so that can easy stop the client
   async start(runtime: IAgentRuntime) {
     this.runtime = runtime;
+    this.agentId = runtime.agentId;
+
     const twitterConfig: TwitterConfig = await validateTwitterConfig(runtime);
     assert(twitterConfig.TWITTER_USERNAME, 'TWITTER_USERNAME is required');
-    const agentId = runtime.agentId;
-    this.agentIdTwitterUserName.set(agentId, twitterConfig.TWITTER_USERNAME!);
+    this.twitterUsername = twitterConfig.TWITTER_USERNAME;
 
-    const task = new Tasks({
-      baseURL: taskManagerBaseEndpoint,
-      headers: {
-        'X-ADMIN-API-KEY': process.env.TASK_MANAGER_ADMIN_API_KEY!,
-      }
-    });
-
-    if(SHARED_SERVICE.taskRuntime.has(twitterConfig.TWITTER_USERNAME!)) {
-      this.logger.warn(`task ${twitterConfig.TWITTER_USERNAME!} runtime already exists, will be replaced`);
+    const title = getTaskTitle(this.twitterUsername, this.nftId);
+    // inject the runtime to the task manager
+    if (SHARED_SERVICE.taskRuntime.has(title)) {
+      this.logger.debug(`waiting ${title} for previous task to be stopped`);
+      const preRuntime = SHARED_SERVICE.taskRuntime.get(title)!;
+      await this.stop(preRuntime);
+      this.logger.warn(`task ${title} runtime already exists, will be replaced`);
     }
-
-    SHARED_SERVICE.setTaskRuntime(twitterConfig.TWITTER_USERNAME!, runtime);
+    SHARED_SERVICE.setTaskRuntime(title, runtime);
 
     await task.tasksControllerCreateTask({
-      title: twitterConfig.TWITTER_USERNAME!,
+      title,
       action: TaskActionName.Start,
       configuration: twitterConfig as any,
+      agentId: this.agentId,
+      nftId: this.nftId,
     });
     return this;
   }
 
   async stop(runtime?: IAgentRuntime) {
-    if (!runtime) runtime = this.runtime;
-    const agentId = runtime.agentId;
-    const twitterUsername = this.agentIdTwitterUserName.get(agentId);
-    if (!twitterUsername) {
-      this.logger.warn(`twitter username not found for agentId ${agentId}`);
-      return;
+    const title = getTaskTitle(this.twitterUsername, this.nftId);
+    if (!SHARED_SERVICE.taskRuntime.has(title)) {
+      SHARED_SERVICE.setTaskRuntime(title, runtime ?? this.runtime);
     }
 
-    const task = new Tasks({
-      baseURL: taskManagerBaseEndpoint,
-    });
-    await task.tasksControllerStopTask(twitterUsername);
+    await task.tasksControllerStopTask(title);
   }
 };

@@ -8,10 +8,27 @@ import { TwitterConfig } from './external.dto.js';
 export class CreateTaskDto {
   @ApiProperty({
     description: 'The title of the task',
+    required: true,
     example: 'Twitter Post Scheduler'
   })
   @IsString()
   readonly title: string;
+
+  @ApiProperty({
+    description: 'ai nft id in xnomad',
+    required: true,
+    example: 'solana:xx:xx'
+  })
+  @IsString()
+  readonly nftId: string;
+
+  @ApiProperty({
+    description: 'which agent start the twitter client',
+    required: true,
+    example: 'xx:xx:xx'
+  })
+  @IsString()
+  readonly agentId: string;
 
   @ApiPropertyOptional({
     description: 'Optional description of the task',
@@ -23,6 +40,7 @@ export class CreateTaskDto {
 
   @ApiProperty({
     description: 'The type of action this task will perform',
+    required: true,
     enum: TaskActionName,
     enumName: 'TaskActionName',
     example: TaskActionName.RESTART

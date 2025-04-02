@@ -22,6 +22,9 @@ async function randomDelay() {
   });
 }
 
+// const CheckLocalTasksStatusCronTime = CronExpression.EVERY_10_SECONDS;
+const CheckLocalTasksStatusCronTime = CronExpression.EVERY_30_SECONDS;
+const CheckLocalTasksStatusTimesOneDay = 60 * 60 * 24 / 30;
 const EVERY_2_MINUTE = "*/2 * * * *";
 
 export function CatchCronError(cronTime: string) {
@@ -45,9 +48,59 @@ export function CatchCronError(cronTime: string) {
   };
 }
 
+class TimeoutMap<K> {
+  private map: Map<K, { value: number; createdAt: number }[]>;
+
+  constructor(private timeout: number) {
+    this.map = new Map<K, { value: number; createdAt: number }[]>();
+  }
+
+  add(key: K, value: number) {
+    if (!this.map.has(key)) {
+      this.map.set(key, []);
+    }
+
+    const list = this.map.get(key)!;
+    list.push({ value, createdAt: Date.now() });
+    this.map.set(key, list);
+  }
+
+  get(key: K): number[] | undefined {
+    const list = this.map.get(key);
+    if (!list) return undefined;
+
+    // Filter out expired elements
+    const now = Date.now();
+    const filteredList = list.filter(item => now - item.createdAt < this.timeout);
+
+    if (filteredList.length === 0) {
+      this.map.delete(key); // Clean up if the list is empty
+      return undefined;
+    }
+
+    this.map.set(key, filteredList); // Update the map with non-expired elements
+    return filteredList.map(item => item.value);
+  }
+
+  delete(key: K) {
+    this.map.delete(key);
+  }
+
+  has(key: K): boolean {
+    const list = this.get(key); // Automatically cleans up expired elements
+    return list !== undefined && list.length > 0;
+  }
+
+  clear() {
+    this.map.clear();
+  }
+}
+
 @Injectable()
 export class WatcherService {
   private readonly logger = new Logger(`${WatcherService.name}_${workerUuid}`);
+  // task title as key, failed times in 24h
+  private taskCounter: TimeoutMap<string> = new TimeoutMap(1000* 60* 60 * 24);
   private sharedService = SHARED_SERVICE;
 
   constructor(
@@ -229,7 +282,6 @@ export class WatcherService {
     this.logger.debug(`${prefix} end ${tasks.length}`);
   }
 
-  // TODO add action when a twitter client is tagged suspended
   @CatchCronError(EVERY_2_MINUTE)
   // @CatchCronError(CronExpression.EVERY_10_SECONDS)
   async checkTaskActionOrConfigurationChanged() {
@@ -243,6 +295,11 @@ export class WatcherService {
       const localTask = this.updateLocalTask(task.title);
       if (!localTask) {
         this.logger.error(`${prefix} localTask ${task.title} not found`);
+        continue;
+      }
+
+      if (task.runningSignal.startFailedForMultipleTimes) {
+        this.logger.debug(`${prefix} ${task.title} ignored because of start failed for multiple times`);
         continue;
       }
 
@@ -303,8 +360,7 @@ export class WatcherService {
     this.logger.debug(`${prefix} end, ${this.tasks.size}`);
   }
 
-  @CatchCronError(CronExpression.EVERY_30_SECONDS)
-  // @CatchCronError(CronExpression.EVERY_10_SECONDS)
+  @CatchCronError(CheckLocalTasksStatusCronTime)
   async checkLocalTasksStatus() {
     const prefix = 'checkLocalTasksStatus';
     this.logger.debug(`${prefix} start`);
@@ -316,9 +372,16 @@ export class WatcherService {
         continue;
       }
 
+      if (localTask.task.runningSignal.startFailedForMultipleTimes) {
+        this.logger.debug(`${prefix} ${localTask.task.title} ignored the task who start failed for multiple times`);
+        continue;
+      }
+
       if (localTask.status === TwitterClientStatus.STOP_FAILED) {
         this.stopTask(localTask.task, { clear: false });
       } else if (localTask.task.action === TaskActionName.START && localTask.task.status !== TaskStatusName.RUNNING) {
+        // if task running failed for multi times, block restart until user update the task
+        await this.onLocalTaskStartFailed(localTask.task);
         this.startTask(localTask.task, localTask.runtime);
       } else if (localTask.task.action === TaskActionName.STOP && localTask.task.status !== TaskStatusName.STOPPED) {
         this.stopTask(localTask.task, { clear: false });
@@ -330,5 +393,20 @@ export class WatcherService {
     }
 
     this.logger.debug(`${prefix} end ${this.tasks.size}`);
+  }
+
+  async onLocalTaskStartFailed(task: Task) {
+    const prefix = 'onLocalTaskStartFailed';
+    this.logger.debug(`${prefix} ${task.title}`);
+
+    this.taskCounter.add(task.title, 1);
+
+    const count = this.taskCounter.get(task.title);
+    // if failed for more than 50% of the time in one day, stop the task
+    if (count && _.sum(count) > CheckLocalTasksStatusTimesOneDay / 2) {
+      this.logger.warn(`${prefix} ${task.title} start failed for ${count} times, stop the task`);
+      await this.tasksService.updateTaskRunningSignalByTitle(task.title, 'startFailedForMultipleTimes', true);
+      task.runningSignal.startFailedForMultipleTimes = true;
+    }
   }
 }

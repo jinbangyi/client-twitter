@@ -7,7 +7,6 @@ import { TaskSchema, Task } from './schemas/task.schema.js';
 import { TaskSettingsSchema, TaskSettings } from './schemas/task-settings.schema.js';
 import { TaskSettingsService } from './task-settings.service.js';
 import { TaskSettingsController } from './task-settings.controller.js';
-// import { WatcherService } from '../watcher/watcher.service.js';
 import { WatcherModule } from '../watcher/watcher.module.js';
 // import { SharedModule } from '../shared/shared.module.js';
 

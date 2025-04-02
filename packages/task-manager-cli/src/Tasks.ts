@@ -59,12 +59,12 @@ export class Tasks<SecurityDataType = unknown> extends HttpClient<SecurityDataTy
    *
    * @tags Tasks
    * @name TasksControllerSuspendedTask
-   * @request POST:/client-twitter/tasks/{title}/report/suspended
+   * @request POST:/client-twitter/tasks/{twitterUserName}/report/suspended
    * @response `201` `TasksControllerSuspendedTaskData`
    */
-  tasksControllerSuspendedTask = (title: string, params: RequestParams = {}) =>
+  tasksControllerSuspendedTask = (twitterUserName: string, params: RequestParams = {}) =>
     this.request<TasksControllerSuspendedTaskData, any>({
-      path: `/client-twitter/tasks/${title}/report/suspended`,
+      path: `/client-twitter/tasks/${twitterUserName}/report/suspended`,
       method: 'POST',
       format: 'json',
       ...params,

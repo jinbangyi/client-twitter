@@ -10,7 +10,7 @@ export class AdminApiKeyGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const request: Request = context.switchToHttp().getRequest();
-    const apiKey = request.headers['X-ADMIN-API-KEY'.toLowerCase()]
+    const apiKey = request.headers['X-ADMIN-API-KEY'.toLowerCase()] ?? request.headers['X-ADMIN-API-KEY'];
 
     if (this.validApiKey && apiKey !== this.validApiKey) {
       throw new UnauthorizedException('Invalid Admin API Key');

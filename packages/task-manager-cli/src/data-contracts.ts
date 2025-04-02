@@ -148,6 +148,16 @@ export interface CreateTaskDto {
    */
   title: string;
   /**
+   * ai nft id in xnomad
+   * @example "solana:xx:xx"
+   */
+  nftId: string;
+  /**
+   * which agent start the twitter client
+   * @example "xx:xx:xx"
+   */
+  agentId: string;
+  /**
    * Optional description of the task
    * @example "A task that schedules Twitter posts"
    */
@@ -201,6 +211,16 @@ export interface UpdateTaskDto {
    * @example "Twitter Post Scheduler"
    */
   title: string;
+  /**
+   * ai nft id in xnomad
+   * @example "solana:xx:xx"
+   */
+  nftId: string;
+  /**
+   * which agent start the twitter client
+   * @example "xx:xx:xx"
+   */
+  agentId: string;
   /**
    * Optional description of the task
    * @example "A task that schedules Twitter posts"

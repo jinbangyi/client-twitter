@@ -30,12 +30,19 @@ export class TasksController {
   @Post()
   @ApiCreatedResponse({
     type: TaskResponseDto,
+    description: 'will full nested object for example configuration, so you should be careful when using this',
   })
   async createTask(
     @Body() createTaskDto: CreateTaskDto
   ) {
+    if (createTaskDto.configuration?.TWITTER_USERNAME && createTaskDto.configuration.TWITTER_USERNAME.startsWith('@')) {
+      createTaskDto.configuration.TWITTER_USERNAME = createTaskDto.configuration.TWITTER_USERNAME.slice(1);
+    }
+
     const task: Task = {
       title: createTaskDto.title,
+      agentId: createTaskDto.agentId,
+      nftId: createTaskDto.nftId,
       action: createTaskDto.action,
       description: createTaskDto.description || '',
       configuration: createTaskDto.configuration || {},
@@ -45,6 +52,9 @@ export class TasksController {
       eventUpdatedAt: new Date(),
       createdBy: workerUuid,
       tags: [],
+      runningSignal: {
+        startFailedForMultipleTimes: false,
+      }
     };
 
     if (!this.sharedService.taskRuntime.get(task.title)) {
@@ -154,6 +164,9 @@ export class TasksController {
   ) {
     const task: Partial<Task> = {
       ...updateTaskDto,
+      runningSignal: {
+        startFailedForMultipleTimes: false,
+      }
     };
     const updatedTask = await this.tasksService.update(id, task);
     if (!updatedTask) {

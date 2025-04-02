@@ -26,6 +26,15 @@ export class TasksService {
     return this.taskModel.findOneAndUpdate({ title }, updateTask, { new: true });
   }
 
+  async updateTaskRunningSignalByTitle(title: string, signal: keyof Task['runningSignal'], value: boolean) {
+    return this.taskModel.updateOne({ title }, {
+      $set: {
+        [`runningSignal.${signal}`]: value,
+        updatedAt: new Date(),
+      }
+    });
+  }
+
   async getTask(id: string): Promise<Task | null> {
     return this.taskModel.findById(id).exec();
   }
@@ -82,12 +91,13 @@ export class TasksService {
       ]
     };
     let tasks = await this.taskModel.find(query);
-    // remove the task that is paused
+    // remove the task that is paused and tagged as failed
     tasks = tasks.filter(task => {
       // pauseUntil
       if (task.pauseUntil && task.pauseUntil > new Date()) {
         return false;
       }
+      if (task.runningSignal.startFailedForMultipleTimes) return false;
       return true;
     });
 

@@ -520,6 +520,8 @@ export class TwitterPostClient {
 
     if (this.client.twitterConfig.POST_IMMEDIATELY) {
       await this.generateNewTweet();
+      // wait 1min to let the tweet be posted and prevent the generateNewTweetLoop generate a new tweet next immediately
+      await new Promise((resolve) => setTimeout(resolve, 60 * 1000));
     }
 
     if (this.client.twitterConfig.ENABLE_TWITTER_POST_GENERATION) {
