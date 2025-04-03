@@ -260,6 +260,8 @@ export type TasksControllerCreateTaskData = TaskResponseDto;
 
 export type TasksControllerStopTaskData = TaskResponseDto;
 
+export type TasksControllerStopTaskByAgentIdData = TaskResponseDto;
+
 export type TasksControllerSuspendedTaskData = TaskResponseDto;
 
 export type TasksControllerUpdateTaskData = TaskResponseDto;

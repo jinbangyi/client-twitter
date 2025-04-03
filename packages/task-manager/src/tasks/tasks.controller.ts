@@ -203,6 +203,22 @@ export class TasksController {
     return task;
   }
 
+  @Post('/agent/:agentId/stop')
+  @ApiCreatedResponse({
+    type: TaskResponseDto,
+  })
+  async stopTaskByAgentId(
+    @Param('agentId') agentId: string
+  ) {
+    const task = await this.tasksService.getTaskByAgentId(agentId);
+    if (!task) {
+      // http 400 error
+      throw new BadRequestException('the task not exists');
+    }
+
+    return this.stopTask(task.title);
+  }
+
   @Post(':twitterUserName/report/suspended')
   @ApiCreatedResponse({
     type: TaskResponseDto,

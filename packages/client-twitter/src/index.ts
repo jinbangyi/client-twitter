@@ -1,4 +1,4 @@
-import { type Client, type IAgentRuntime, ActionTimelineType } from '@elizaos/core';
+import { type Client, type IAgentRuntime, ActionTimelineType, UUID } from '@elizaos/core';
 
 import { ClientBase } from './base.js';
 import {
@@ -189,33 +189,38 @@ export class TwitterClientClass implements Client {
   async stop(runtime?: IAgentRuntime): Promise<void> {
     if (!runtime) runtime = this.runtime;
 
+    return await this.stopByAgentId(runtime.agentId);
+  }
+
+  // stop the twitter client by agentId
+  async stopByAgentId(agentId: UUID): Promise<void> {
     if (
-      GLOBAL_SETTINGS.getCurrentAgentTwitterAccountStatus(runtime.agentId) === TwitterClientStatus.RUNNING ||
-      GLOBAL_SETTINGS.getCurrentAgentTwitterAccountStatus(runtime.agentId) === TwitterClientStatus.STOP_FAILED
+      GLOBAL_SETTINGS.getCurrentAgentTwitterAccountStatus(agentId) === TwitterClientStatus.RUNNING ||
+      GLOBAL_SETTINGS.getCurrentAgentTwitterAccountStatus(agentId) === TwitterClientStatus.STOP_FAILED
     ) {
-      const twitterConfig = GLOBAL_SETTINGS.getAgentTwitterConfig(runtime.agentId);
+      const twitterConfig = GLOBAL_SETTINGS.getAgentTwitterConfig(agentId);
       const username = twitterConfig.TWITTER_USERNAME;
       const proxy = this.getProxy(twitterConfig.TWITTER_HTTP_PROXY);
 
-      twitterAccountStatus.labels(username, proxy, runtime.agentId).set(2);
+      twitterAccountStatus.labels(username, proxy, agentId).set(2);
 
-      GLOBAL_SETTINGS.setClientTwitterStatus(runtime.agentId, TwitterClientStatus.STOPPING);
-      const manager: TwitterManager = GLOBAL_SETTINGS.getAgentTwitterManager(runtime.agentId);
+      GLOBAL_SETTINGS.setClientTwitterStatus(agentId, TwitterClientStatus.STOPPING);
+      const manager: TwitterManager = GLOBAL_SETTINGS.getAgentTwitterManager(agentId);
       const ok = await manager.stop();
 
       if (!ok) {
-        GLOBAL_SETTINGS.setClientTwitterStatus(runtime.agentId, TwitterClientStatus.STOP_FAILED);
+        GLOBAL_SETTINGS.setClientTwitterStatus(agentId, TwitterClientStatus.STOP_FAILED);
         throw new Error(
           `Twitter client ${username} failed to stop, please try again`,
         );
       } else {
-        GLOBAL_SETTINGS.removeClientTwitter(runtime.agentId);
-        twitterAccountStatus.labels(username, proxy, runtime.agentId).set(0);
-        Logger.info(`Twitter client ${runtime.agentId} stopped`);
+        GLOBAL_SETTINGS.removeClientTwitter(agentId);
+        twitterAccountStatus.labels(username, proxy, agentId).set(0);
+        Logger.info(`Twitter client ${agentId} stopped`);
       }
     } else {
       Logger.warn(
-        `Twitter client ${runtime.agentId} is not running, cannot stop`,
+        `Twitter client ${agentId} is not running, cannot stop`,
       );
     }
   }
@@ -227,6 +232,7 @@ export class TwitterClientClass implements Client {
 
 export const TwitterClient: Client & {
   getStatus(runtime: IAgentRuntime): TwitterClientStatus;
+  stopByAgentId(agentId: string): Promise<void>;
 } = new TwitterClientClass();
 export const TwitterClientInterface: Client = TwitterClient;
 

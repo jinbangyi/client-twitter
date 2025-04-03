@@ -15,12 +15,15 @@ async function runWithErrorHandling(
     // when error occurs, retry after this delay
     retryDelay?: number;
     checkInterval?: number;
+    // for status check interval
+    statusCheckInterval?: number;
   } = {}
 ) {
   logger.info(`${name} loop started`);
   const {
     retryDelay = 30 * 1000, // 30 seconds
-    checkInterval = 60 * 1000 // 1 minute
+    checkInterval = 60 * 1000, // 1 minute
+    statusCheckInterval = 10000 // 10 second
   } = options;
 
   while (true) {
@@ -31,13 +34,24 @@ async function runWithErrorHandling(
 
     try {
       const randomDelay = await handler();
+      logger.debug(`${name} handler completed`);
       taskStatusSetter(2);
-      if (randomDelay !== undefined) {
-        logger.debug(`${name} handler completed, next interval: ${randomDelay}`);
-        await new Promise(resolve => setTimeout(resolve, randomDelay));
-      } else {
-        logger.debug(`${name} handler completed, using default delay`);
-        await new Promise(resolve => setTimeout(resolve, checkInterval));
+
+      const sleepTime = randomDelay !== undefined ? randomDelay : checkInterval;
+      let remainingTime = sleepTime;
+
+      // Break the sleep into smaller intervals
+      while (remainingTime > 0) {
+        const status = taskStatusSetter();
+        logger.debug(`${name} read status: ${status}`);
+        if (status === 0) {
+          logger.info(`${name} received stop signal during sleep`);
+          return;
+        }
+
+        const currentWait = Math.min(statusCheckInterval, remainingTime);
+        await new Promise(resolve => setTimeout(resolve, currentWait));
+        remainingTime -= currentWait;
       }
     } catch (error) {
       logger.error(`Error in ${name}: ${error}`);
@@ -87,6 +101,7 @@ export async function defaultRunWithErrorHandling(
     logger,
     taskStatusSetter,
     handler,
-    errorHandler
+    errorHandler,
+    options
   );
 }

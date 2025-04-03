@@ -16,6 +16,7 @@ import {
   TasksControllerCreateTaskData,
   TasksControllerGetTaskData,
   TasksControllerReportErrorData,
+  TasksControllerStopTaskByAgentIdData,
   TasksControllerStopTaskData,
   TasksControllerSuspendedTaskData,
   TasksControllerUpdateTaskData,
@@ -52,6 +53,21 @@ export class Tasks<SecurityDataType = unknown> extends HttpClient<SecurityDataTy
   tasksControllerStopTask = (title: string, params: RequestParams = {}) =>
     this.request<TasksControllerStopTaskData, any>({
       path: `/client-twitter/tasks/${title}/stop`,
+      method: 'POST',
+      format: 'json',
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Tasks
+   * @name TasksControllerStopTaskByAgentId
+   * @request POST:/client-twitter/tasks/agent/{agentId}/stop
+   * @response `201` `TasksControllerStopTaskByAgentIdData`
+   */
+  tasksControllerStopTaskByAgentId = (agentId: string, params: RequestParams = {}) =>
+    this.request<TasksControllerStopTaskByAgentIdData, any>({
+      path: `/client-twitter/tasks/agent/${agentId}/stop`,
       method: 'POST',
       format: 'json',
       ...params,

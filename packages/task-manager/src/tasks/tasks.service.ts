@@ -64,6 +64,14 @@ export class TasksService {
     return this.taskModel.find({ 'configuration.TWITTER_USERNAME': twitterUserName });
   }
 
+  async getTaskByAgentId(agentId: string): Promise<Required<Task> | null> {
+    return this.taskModel.findOne({ agentId });
+  }
+
+  async getTaskByNftId(nftId: string): Promise<Required<Task> | null> {
+    return this.taskModel.findOne({ nftId });
+  }
+
   async getTaskByTwitterUserNameAndAgentId(
     twitterUserName: string,
     agentId: string

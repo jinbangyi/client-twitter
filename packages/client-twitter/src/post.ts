@@ -455,7 +455,7 @@ export class TwitterPostClient {
         if (value !== undefined) {
           this.backendTaskStatus.generateNewTweet = value;
         }
-        return this.backendTaskStatus.generateNewTweet
+        return this.backendTaskStatus.generateNewTweet;
       },
       async () => {
         const lastPost = await this.runtime.cacheManager.get<{
@@ -1439,7 +1439,12 @@ export class TwitterPostClient {
       return false;
     }
 
-    return true;
+    // check if all values are equal to 0
+    return [
+      this.backendTaskStatus.generateNewTweet,
+      this.backendTaskStatus.processTweetActions,
+      this.backendTaskStatus.runPendingTweetCheck
+    ].every(status => status === 0);
   }
 
   private async sendForApproval(
