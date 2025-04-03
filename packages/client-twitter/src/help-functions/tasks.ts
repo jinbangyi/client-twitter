@@ -27,7 +27,8 @@ async function runWithErrorHandling(
   } = options;
 
   while (true) {
-    if (taskStatusSetter() === 0) {
+    let status = taskStatusSetter();
+    if (status === 0) {
       break;
     }
     taskStatusSetter(1);
@@ -42,7 +43,7 @@ async function runWithErrorHandling(
 
       // Break the sleep into smaller intervals
       while (remainingTime > 0) {
-        const status = taskStatusSetter();
+        status = taskStatusSetter();
         logger.debug(`${name} read status: ${status}`);
         if (status === 0) {
           logger.info(`${name} received stop signal during sleep`);
@@ -62,6 +63,7 @@ async function runWithErrorHandling(
     }
   }
 
+  taskStatusSetter(4);
   logger.info(`${name} loop ended`);
 }
 

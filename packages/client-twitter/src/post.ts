@@ -322,7 +322,7 @@ export class TwitterPostClient {
   private runtimeTwitterPostHelper: RuntimeTwitterPostHelper;
 
   private backendTaskStatus: {
-    // 0 stopped, 1 running, 2 completed
+    // 0 stopped, 1 running, 2 completed, 4 exit
     generateNewTweet: number;
     processTweetActions: number;
     runPendingTweetCheck: number;
@@ -1407,44 +1407,17 @@ export class TwitterPostClient {
 
   // if false, should stop again
   async stop(): Promise<boolean> {
-    // TODO loop check
-    if (this.backendTaskStatus.generateNewTweet === 2) {
-      this.backendTaskStatus.generateNewTweet = 0;
-      this.logger.info(`${this.twitterUsername} task generateNewTweet stopped`);
-    } else if (this.backendTaskStatus.generateNewTweet === 0) {
-      // stopped
-    } else {
-      return false;
-    }
+    // set stats to 0, stop the loop
+    this.backendTaskStatus.generateNewTweet = 0;
+    this.backendTaskStatus.processTweetActions = 0;
+    this.backendTaskStatus.runPendingTweetCheck = 0;
 
-    if (this.backendTaskStatus.processTweetActions === 2) {
-      this.backendTaskStatus.processTweetActions = 0;
-      this.logger.info(
-        `${this.twitterUsername} task processTweetActions stopped`,
-      );
-    } else if (this.backendTaskStatus.processTweetActions === 0) {
-      // stopped
-    } else {
-      return false;
-    }
-
-    if (this.backendTaskStatus.runPendingTweetCheck === 2) {
-      this.backendTaskStatus.runPendingTweetCheck = 0;
-      this.logger.info(
-        `${this.twitterUsername} task runPendingTweetCheck stopped`,
-      );
-    } else if (this.backendTaskStatus.runPendingTweetCheck === 0) {
-      // stopped
-    } else {
-      return false;
-    }
-
-    // check if all values are equal to 0
+    // check if all loop exit
     return [
       this.backendTaskStatus.generateNewTweet,
       this.backendTaskStatus.processTweetActions,
       this.backendTaskStatus.runPendingTweetCheck
-    ].every(status => status === 0);
+    ].every(status => status === 4);
   }
 
   private async sendForApproval(

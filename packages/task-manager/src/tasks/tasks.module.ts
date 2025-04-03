@@ -19,5 +19,6 @@ import { WatcherModule } from '../watcher/watcher.module.js';
   ],
   controllers: [TasksController, TaskSettingsController],
   providers: [TasksService, TaskSettingsService],
+  exports: [TasksService],
 })
 export class TasksModule { }
