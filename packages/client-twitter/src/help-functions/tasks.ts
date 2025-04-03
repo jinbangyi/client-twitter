@@ -47,12 +47,16 @@ async function runWithErrorHandling(
         logger.debug(`${name} read status: ${status}`);
         if (status === 0) {
           logger.info(`${name} received stop signal during sleep`);
-          return;
+          break;
         }
 
         const currentWait = Math.min(statusCheckInterval, remainingTime);
         await new Promise(resolve => setTimeout(resolve, currentWait));
         remainingTime -= currentWait;
+      }
+
+      if (status === 0) {
+        break;
       }
     } catch (error) {
       logger.error(`Error in ${name}: ${error}`);
