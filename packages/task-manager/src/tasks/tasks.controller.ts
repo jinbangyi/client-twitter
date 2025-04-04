@@ -1,5 +1,6 @@
 import { Controller, Post, Put, Param, Body, BadRequestException, Logger, UseGuards, Get } from '@nestjs/common';
 import { ApiCreatedResponse, ApiHeader } from '@nestjs/swagger';
+import { TwitterClient } from '@elizaos/client-twitter';
 
 import { TasksService } from './tasks.service.js';
 import { CreateTaskDto, ErrorReportDto, TaskResponseDto, UpdateTaskDto } from './dto/task.dto.js';
@@ -216,7 +217,8 @@ export class TasksController {
       throw new BadRequestException('the task not exists');
     }
 
-    return this.stopTask(task.title);
+    TwitterClient.stopByAgentId(agentId);
+    return { 'message': 'stopping the client' };
   }
 
   @Post(':twitterUserName/report/suspended')
