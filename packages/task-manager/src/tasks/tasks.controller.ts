@@ -198,7 +198,7 @@ export class TasksController {
       throw new BadRequestException(`task ${task.title} runtime not found`);
     }
 
-    this.watcherService.stopTask(task, { clear: false });
+    this.watcherService.stopTask(task);
 
     return task;
   }

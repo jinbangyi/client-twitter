@@ -153,7 +153,7 @@ export class WatcherService {
     this.taskRuntime.delete(taskTitle);
   }
 
-  stopTask(task: Task, options: { clear: boolean } = { clear: true }) {
+  stopTask(task: Task) {
     const prefix = 'stopTask';
     this.logger.debug(`${prefix} ${task.title}`);
 
@@ -168,11 +168,6 @@ export class WatcherService {
       task,
       runtime,
     );
-
-    if (options.clear) {
-      // TODO, what if stop failed
-      this.clearLocalTask(task.title);
-    }
   }
 
   private restartTask(
@@ -310,6 +305,8 @@ export class WatcherService {
       // if owner changed
       if (localTask.task.createdBy !== task.createdBy && localTask.task.createdBy === workerUuid) {
         this.logger.debug(`${prefix} ${task.title} owner changed`);
+        // change the local task action, so that when the task stoped failed, another worker can stop it
+        localTask.task.action = TaskActionName.STOP;
         this.stopTask(task);
       } else if (
         // if action changed
@@ -318,6 +315,7 @@ export class WatcherService {
         this.logger.debug(`${prefix} ${task.title} action changed`);
         // the local task do not maintain stopped task, so ignore the task.action=start
         if (task.action === TaskActionName.STOP) {
+          localTask.task.action = TaskActionName.STOP;
           this.stopTask(task);
         } else if (task.action === TaskActionName.RESTART) {
           this.restartTask(task, localTask.runtime);
@@ -336,11 +334,13 @@ export class WatcherService {
           this.restartTask(task, localTask.runtime);
         } else {
           // if twitter username is not set, stop the task
+          localTask.task.action = TaskActionName.STOP;
           this.stopTask(task);
         }
       } else {
         if (task.pauseUntil && task.pauseUntil > new Date()) {
           this.logger.debug(`${prefix} task ${task.title} is paused`);
+          localTask.task.action = TaskActionName.STOP;
           this.stopTask(task);
         } else {
           // update task update time
@@ -359,7 +359,8 @@ export class WatcherService {
       this.logger.debug(`${prefix} task ${taskTitle} is not in db`);
       if (localTask.task.status === TaskStatusName.RUNNING) {
         // stop the task
-        this.stopTask(localTask.task, { clear: false });
+        localTask.task.action = TaskActionName.STOP;
+        this.stopTask(localTask.task);
       } else {
         // clear the task
         this.clearLocalTask(localTask.task.title);
@@ -387,15 +388,17 @@ export class WatcherService {
       }
 
       if (localTask.status === TwitterClientStatus.STOP_FAILED) {
-        this.stopTask(localTask.task, { clear: false });
+        this.stopTask(localTask.task);
       } else if (localTask.task.action === TaskActionName.START && localTask.task.status !== TaskStatusName.RUNNING) {
         // if task running failed for multi times, block restart until user update the task
         await this.onLocalTaskStartFailed(localTask.task);
         this.startTask(localTask.task, localTask.runtime);
       } else if (localTask.task.action === TaskActionName.STOP && localTask.task.status !== TaskStatusName.STOPPED) {
-        this.stopTask(localTask.task, { clear: false });
+        this.stopTask(localTask.task);
       } else if (localTask.task.action === TaskActionName.RESTART && localTask.task.status !== TaskStatusName.RESTARTED) {
         this.restartTask(localTask.task, localTask.runtime, { overwriteTask: false });
+      } else if (localTask.task.action === TaskActionName.STOP && localTask.task.status === TaskStatusName.STOPPED) {
+        this.clearLocalTask(localTask.task.title);
       } else {
         this.logger.debug(`${prefix} ${localTask.task.title} status is expected`);
       }
