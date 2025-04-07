@@ -316,6 +316,7 @@ export class ClientBase extends EventEmitter {
     GLOBAL_SETTINGS.setClientTwitterState(this.runtime.agentId, TwitterClientState.TWITTER_LOGIN);
 
     while (retries > 0) {
+      let errorMessage: string | undefined;
       try {
         if (await this.twitterClient.isLoggedIn()) {
           // cookies are valid, no login required
@@ -341,16 +342,17 @@ export class ClientBase extends EventEmitter {
         }
       } catch (error) {
         this.logger.error(`Login attempt failed: ${error.message}`);
+        errorMessage = error.message;
       }
 
       retries--;
-      this.logger.error(
+      this.logger.warn(
         `Failed to login to Twitter. Retrying... (${retries} attempts left)`,
       );
 
       if (retries === 0) {
         this.logger.error('Max retries reached. Exiting login process.');
-        throw new Error('Twitter login failed after maximum retries.');
+        throw new Error(`Twitter login failed after maximum retries: ${errorMessage}`);
       }
 
       await new Promise((resolve) => setTimeout(resolve, 2000));
