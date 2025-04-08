@@ -322,14 +322,16 @@ export class TwitterPostClient {
   private runtimeTwitterPostHelper: RuntimeTwitterPostHelper;
 
   private backendTaskStatus: {
-    // 0 stopped, 1 running, 2 completed, 4 exit
+    // 0 stop sginal
+    // 1 running, 2 completed
+    // 4 the loop is exited
     generateNewTweet: number;
     processTweetActions: number;
     runPendingTweetCheck: number;
   } = {
-      generateNewTweet: 2,
-      processTweetActions: 2,
-      runPendingTweetCheck: 2,
+      generateNewTweet: 4,
+      processTweetActions: 4,
+      runPendingTweetCheck: 4,
     };
 
   private logger: pino.Logger<string, boolean>;
@@ -1407,7 +1409,16 @@ export class TwitterPostClient {
 
   // if false, should stop again
   async stop(): Promise<boolean> {
-    // set stats to 0, stop the loop
+    // the loop is not running
+    if ([
+      this.backendTaskStatus.generateNewTweet,
+      this.backendTaskStatus.processTweetActions,
+      this.backendTaskStatus.runPendingTweetCheck
+    ].every(status => status === 4)) {
+      return true;
+    }
+
+    // the loop is running, so set stats to 0 wait the loop stop
     this.backendTaskStatus.generateNewTweet = 0;
     this.backendTaskStatus.processTweetActions = 0;
     this.backendTaskStatus.runPendingTweetCheck = 0;
